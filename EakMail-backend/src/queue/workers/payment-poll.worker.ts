@@ -13,7 +13,7 @@
  */
 import { Worker } from 'bullmq';
 import type { Job } from 'bullmq';
-import { OrderStatus, PaymentStatus } from '@eakmail/shared-types';
+import { OrderStatus, PaymentStatus, type Language } from '@eakmail/shared-types';
 import { logger } from '../../lib/logger.js';
 import {
   bullConnection,
@@ -23,6 +23,8 @@ import {
 } from '../queues.js';
 import { orderRepository } from '../../modules/orders/order.repository.js';
 import { prisma } from '../../db/client.js';
+import { t } from '../../telegram/bot/i18n/index.js';
+import { MessageKey } from '../../telegram/bot/i18n/keys.js';
 import type { WorkerBuildDeps } from './types.js';
 
 const log = logger.child({ module: 'payment-poll-worker' });
@@ -68,6 +70,7 @@ async function processPoll(job: Job<PaymentPollJob>): Promise<void> {
   if (isExpired(payment?.expiresAt ?? null)) {
     const expired = await orderRepository.markExpired(orderId);
     log.info({ orderId, expired }, 'poll: payment window elapsed');
+    if (expired) void sendPaymentExpiredNotification(orderId);
     return;
   }
 
@@ -108,4 +111,32 @@ async function promoteToPaidAndFulfill(orderId: string): Promise<void> {
 
 function isExpired(expiresAt: Date | null): boolean {
   return expiresAt != null && expiresAt.getTime() <= Date.now();
+}
+
+async function sendPaymentExpiredNotification(orderId: string): Promise<void> {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        amount: true,
+        customer: { select: { telegramId: true, language: true } },
+        product: { select: { name: true } },
+      },
+    });
+    if (!order) return;
+    const lang = (order.customer.language as Language) ?? 'id';
+    const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
+    const text = t(MessageKey.PAYMENT_EXPIRED, lang, {
+      productName: order.product.name,
+      amount: fmt(order.amount),
+      orderId,
+    });
+    await getQueues()[QueueName.NOTIFICATIONS].add(
+      'payment-expired',
+      { customerTelegramId: order.customer.telegramId, text },
+      { jobId: `payment-expired-${orderId}`, attempts: 3 },
+    );
+  } catch (err) {
+    log.warn({ orderId, err }, 'payment expired notification failed — non-fatal');
+  }
 }

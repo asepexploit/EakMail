@@ -77,11 +77,21 @@ const id: Catalog = {
 
   // Fulfillment notice
   [MessageKey.FULFILLING_NOTICE]:
-    '⏳ Pesanan kamu sedang kami siapkan...\n\nMohon tunggu sebentar, akun akan segera dikirim otomatis.',
+    '⚙️ *Pesanan Sedang Diproses*\n\nPembayaran dikonfirmasi! Kami sedang menyiapkan produkmu... 🔄\n\n📦 Produk: *{{productName}}*\n🆔 ID: `{{orderId}}`\n\n_Mohon tunggu sebentar. Notifikasi akan dikirim saat produk siap!_ 📬',
 
-  // Delivery wrapper
+  // Delivery wrapper — wraps the raw payload before sending to the customer
   [MessageKey.DELIVERY_WRAPPER]:
-    '🎉 Pesanan {{orderId}} Anda sudah siap!\n\n{{payload}}\n\nTerima kasih telah berbelanja di {{brandName}}.',
+    '🎉 *Pesanan Berhasil Dikirim!*\n\nHei! Produk digitalmu sudah siap nih 🚀\n\n📦 *Berikut produkmu:*\n\n{{payload}}\n\n──────────────────────\n🆔 ID Pesanan: `{{orderId}}`\nSimpan pesan ini sebagai bukti ya!\n──────────────────────\n\nTerima kasih sudah belanja! ❤️',
+
+  // Payment outcome notifications
+  [MessageKey.TOPUP_SUCCESS]:
+    '✅ *Top Up Berhasil!*\n\nSaldo kamu sudah berhasil ditambahkan 🎉\n\n💰 Nominal: *Rp {{amount}}*\n💳 Metode: QRIS\n\n──────────────────────\n💼 Saldo kamu sekarang: *Rp {{newBalance}}*\n──────────────────────\n\nSiap belanja? Ketik /catalog untuk lihat produk 🛍️',
+
+  [MessageKey.PAYMENT_CONFIRMED]:
+    '✅ *Pembayaran Diterima!*\n\nPembayaran kamu sudah kami konfirmasi 🎉\nPesanan sedang kami proses, ya...\n\n📦 Produk: *{{productName}}*\n💰 Total: *Rp {{amount}}*\n🆔 ID Pesanan: `{{orderId}}`\n\n──────────────────────\n_Kamu akan dapat notifikasi lagi saat produk siap dikirim_ 📬\n──────────────────────',
+
+  [MessageKey.PAYMENT_EXPIRED]:
+    '⏰ *Pembayaran Kadaluarsa*\n\nWaktu pembayaran untuk pesananmu sudah habis 😔\n\n📦 Produk: *{{productName}}*\n💰 Total: *Rp {{amount}}*\n🆔 ID Pesanan: `{{orderId}}`\n\n──────────────────────\nTenang, tidak ada biaya yang dikenakan.\n\nMau coba lagi? Ketik /catalog 🛍️\n──────────────────────',
 
   // Balance / top-up
   [MessageKey.BALANCE_INFO]:

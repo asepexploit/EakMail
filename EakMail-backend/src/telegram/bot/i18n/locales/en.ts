@@ -77,11 +77,21 @@ const en: Catalog = {
 
   // Fulfillment notice
   [MessageKey.FULFILLING_NOTICE]:
-    '⏳ We are preparing your order...\n\nPlease wait a moment, your account will be sent automatically.',
+    '⚙️ *Order Being Processed*\n\nPayment confirmed! We\'re preparing your product... 🔄\n\n📦 Product: *{{productName}}*\n🆔 ID: `{{orderId}}`\n\n_Please wait a moment. You\'ll receive a notification when your product is ready!_ 📬',
 
   // Delivery wrapper
   [MessageKey.DELIVERY_WRAPPER]:
-    '🎉 Your order {{orderId}} is ready!\n\n{{payload}}\n\nThank you for shopping at {{brandName}}.',
+    '🎉 *Order Delivered!*\n\nHey! Your digital product is ready 🚀\n\n📦 *Your product:*\n\n{{payload}}\n\n──────────────────────\n🆔 Order ID: `{{orderId}}`\nKeep this message as proof!\n──────────────────────\n\nThank you for shopping! ❤️',
+
+  // Payment outcome notifications
+  [MessageKey.TOPUP_SUCCESS]:
+    '✅ *Top Up Successful!*\n\nYour balance has been credited 🎉\n\n💰 Amount: *Rp {{amount}}*\n💳 Method: QRIS\n\n──────────────────────\n💼 Your balance now: *Rp {{newBalance}}*\n──────────────────────\n\nReady to shop? Type /catalog to browse products 🛍️',
+
+  [MessageKey.PAYMENT_CONFIRMED]:
+    '✅ *Payment Received!*\n\nYour payment has been confirmed 🎉\nWe\'re processing your order...\n\n📦 Product: *{{productName}}*\n💰 Total: *Rp {{amount}}*\n🆔 Order ID: `{{orderId}}`\n\n──────────────────────\n_You\'ll receive another notification when your product is ready to deliver_ 📬\n──────────────────────',
+
+  [MessageKey.PAYMENT_EXPIRED]:
+    '⏰ *Payment Expired*\n\nThe payment window for your order has expired 😔\n\n📦 Product: *{{productName}}*\n💰 Total: *Rp {{amount}}*\n🆔 Order ID: `{{orderId}}`\n\n──────────────────────\nDon\'t worry, no charges have been applied.\n\nWant to try again? Type /catalog 🛍️\n──────────────────────',
 
   // Balance / top-up
   [MessageKey.BALANCE_INFO]:

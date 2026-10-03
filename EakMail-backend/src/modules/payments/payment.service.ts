@@ -12,6 +12,7 @@ import {
   PaymentStatus,
   type CreateTransactionRequest,
   type PaymentDto,
+  type Language,
 } from '@eakmail/shared-types';
 import { logger } from '../../lib/logger.js';
 import { NotFoundError, ValidationError } from '../../lib/errors.js';
@@ -23,6 +24,9 @@ import { verifyWebhookSignature } from './webhook-verify.js';
 import { parseWebhook } from './pakasir-parser.js';
 import type { PakasirWebhookEvent } from './pakasir-types.js';
 import { settleTopupByOrderId } from './topup.service.js';
+import { prisma } from '../../db/client.js';
+import { t } from '../../telegram/bot/i18n/index.js';
+import { MessageKey } from '../../telegram/bot/i18n/keys.js';
 
 const log = logger.child({ module: 'payment-service' });
 const PROVIDER = 'pakasir';
@@ -127,6 +131,8 @@ export const paymentService = {
           { jobId: `fulfill-${event.orderId}` },
         );
         log.info({ orderId: event.orderId }, 'Order marked PAID; fulfillment enqueued');
+        // Notify customer their QRIS payment was received and order is being processed.
+        void sendPaymentConfirmedNotification(event.orderId);
       } else {
         log.info({ orderId: event.orderId }, 'Duplicate PAID webhook — already settled, ignored');
       }
@@ -156,3 +162,31 @@ export const paymentService = {
     return rows.map(toPaymentDto);
   },
 };
+
+async function sendPaymentConfirmedNotification(orderId: string): Promise<void> {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        amount: true,
+        customer: { select: { telegramId: true, language: true } },
+        product: { select: { name: true } },
+      },
+    });
+    if (!order) return;
+    const lang = (order.customer.language as Language) ?? 'id';
+    const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
+    const text = t(MessageKey.PAYMENT_CONFIRMED, lang, {
+      productName: order.product.name,
+      amount: fmt(order.amount),
+      orderId,
+    });
+    await getQueues()[QueueName.NOTIFICATIONS].add(
+      'payment-confirmed',
+      { customerTelegramId: order.customer.telegramId, text },
+      { jobId: `payment-confirmed-${orderId}`, attempts: 3 },
+    );
+  } catch (err) {
+    log.warn({ orderId, err }, 'payment confirmed notification failed — non-fatal');
+  }
+}

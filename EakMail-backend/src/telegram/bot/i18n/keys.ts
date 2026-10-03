@@ -68,6 +68,11 @@ export const MessageKey = {
   // Delivery wrapper (message sent to customer on DELIVER)
   DELIVERY_WRAPPER: 'delivery.wrapper',
 
+  // Payment outcome notifications (sent proactively after webhook / expiry)
+  TOPUP_SUCCESS: 'topup.success',
+  PAYMENT_CONFIRMED: 'payment.confirmed',
+  PAYMENT_EXPIRED: 'payment.expired',
+
   // Balance / top-up (/saldo, /topup)
   BALANCE_INFO: 'balance.info',
   BALANCE_TOPUP_BTN: 'balance.topupBtn',

@@ -227,7 +227,7 @@ export const featureStrings = {
 
   payments: {
     subtitle: 'Transaksi Pakasir dan rekonsiliasi.',
-    order: 'Pesanan',
+    order: 'Referensi',
     method: 'Metode',
     amount: 'Jumlah',
     fee: 'Biaya',
@@ -235,6 +235,7 @@ export const featureStrings = {
     txnId: 'ID Transaksi',
     expiry: 'Kedaluwarsa',
     vaNumber: 'Nomor VA',
+    created: 'Tanggal',
   },
 
   monitoring: {

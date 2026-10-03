@@ -19,5 +19,6 @@ export function toPaymentDto(payment: Payment): PaymentDto {
     vaNumber: payment.vaNumber,
     paymentUrl: payment.paymentUrl,
     expiresAt: payment.expiresAt ? payment.expiresAt.toISOString() : null,
+    createdAt: payment.createdAt.toISOString(),
   };
 }

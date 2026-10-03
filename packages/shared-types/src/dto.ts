@@ -302,6 +302,7 @@ export interface PaymentDto {
   vaNumber: string | null;
   paymentUrl: string | null;
   expiresAt: string | null;
+  createdAt: string;
 }
 export interface CreateTransactionRequest {
   orderId: string;

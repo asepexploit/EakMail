@@ -105,7 +105,10 @@ async function sendFulfillingNotice(orderId: string): Promise<void> {
     const context = await orderRepository.findForFulfillment(orderId);
     if (!context) return;
     const lang = (context.customer.language as Language) ?? 'id';
-    const text = t(MessageKey.FULFILLING_NOTICE, lang);
+    const text = t(MessageKey.FULFILLING_NOTICE, lang, {
+      productName: context.product.name,
+      orderId,
+    });
     await getStorefrontSender().sendText(context.customer.telegramId, text);
   } catch (err) {
     log.warn({ orderId, err }, 'fulfilling notice failed — continuing anyway');
@@ -362,7 +365,21 @@ async function deliver(
   customerTelegramId: string,
   payload: unknown,
 ): Promise<void> {
-  const text = renderDeliveryText(payload);
+  const rawText = renderDeliveryText(payload);
+
+  // Wrap with the delivery template in the customer's language.
+  let text = rawText;
+  try {
+    const customer = await prisma.customer.findUnique({
+      where: { telegramId: customerTelegramId },
+      select: { language: true },
+    });
+    const lang = (customer?.language as Language) ?? 'id';
+    text = t(MessageKey.DELIVERY_WRAPPER, lang, { orderId, payload: rawText });
+  } catch {
+    // Non-fatal: send raw text if language fetch fails.
+  }
+
   const outcome = await orderRepository.createDelivery(orderId, encrypt(text));
   if (outcome === 'duplicate') {
     log.info({ orderId }, 'delivery already recorded — not re-sending');

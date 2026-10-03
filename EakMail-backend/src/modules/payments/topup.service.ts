@@ -7,7 +7,10 @@ import { logger } from '../../lib/logger.js';
 import { getPakasirClient } from './client-factory.js';
 import { parseCreateTransaction } from './pakasir-parser.js';
 import { balanceService } from '../customers/balance.service.js';
-import { PaymentMethod } from '@eakmail/shared-types';
+import { PaymentMethod, type Language } from '@eakmail/shared-types';
+import { getQueues, QueueName } from '../../queue/queues.js';
+import { t } from '../../telegram/bot/i18n/index.js';
+import { MessageKey } from '../../telegram/bot/i18n/keys.js';
 
 const log = logger.child({ module: 'topup-service' });
 
@@ -80,6 +83,35 @@ export async function settleTopupByOrderId(pakasirOrderId: string): Promise<void
 
   await balanceService.topup(topup.customerId, topup.amount, `Topup via QRIS (${topupId})`);
   log.info({ topupId, customerId: topup.customerId, amount: topup.amount }, 'topup settled — balance credited');
+
+  void sendTopupSuccessNotification(topup.customerId, topup.amount, topupId);
+}
+
+async function sendTopupSuccessNotification(
+  customerId: string,
+  amount: number,
+  topupId: string,
+): Promise<void> {
+  try {
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { telegramId: true, language: true, balance: true },
+    });
+    if (!customer) return;
+    const lang = (customer.language as Language) ?? 'id';
+    const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
+    const text = t(MessageKey.TOPUP_SUCCESS, lang, {
+      amount: fmt(amount),
+      newBalance: fmt(customer.balance),
+    });
+    await getQueues()[QueueName.NOTIFICATIONS].add(
+      'topup-success',
+      { customerTelegramId: customer.telegramId, text },
+      { jobId: `topup-success-${topupId}`, attempts: 3 },
+    );
+  } catch (err) {
+    log.warn({ customerId, topupId, err }, 'topup success notification failed — non-fatal');
+  }
 }
 
 /**
