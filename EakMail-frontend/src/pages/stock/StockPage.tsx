@@ -195,6 +195,7 @@ type StockItem = {
   payload: string;
   usedAt: string | null;
   orderId: string | null;
+  customerName: string | null;
   createdAt: string;
 };
 
