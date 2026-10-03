@@ -15,6 +15,16 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Badge } from '@/components/ui/Badge';
 import { useToasts } from '@/features/shared/useToasts';
 
+// ---- delivery template presets -----------------------------------------------
+
+const DELIVERY_PRESETS = [
+  { label: '1 · Minimalis', body: '{{payload}}' },
+  { label: '2 · Simpel',    body: '✅ Pesananmu sudah dikirim!\n\n{{payload}}\n\n🆔 `{{orderId}}`' },
+  { label: '3 · Standard',  body: '🎉 *Pesanan Berhasil Dikirim!*\n\n📦 Berikut produkmu:\n\n{{payload}}\n\n──────────────\n🆔 `{{orderId}}`\nSimpan sebagai bukti ya!' },
+  { label: '4 · Casual',    body: 'Hei! Produkmu udah siap nih 🚀\n\n{{payload}}\n\n🆔 `{{orderId}}` · Terima kasih! ❤️' },
+  { label: '5 · Lengkap',   body: '🎉 *Pesanan Berhasil Dikirim!*\n\nHei! Produk digitalmu sudah siap nih 🚀\n\n📦 *Berikut produkmu:*\n\n{{payload}}\n\n──────────────────────\n🆔 ID Pesanan: `{{orderId}}`\nSimpan pesan ini sebagai bukti ya!\n──────────────────────\n\nTerima kasih sudah belanja! ❤️' },
+];
+
 // ---- helpers ----------------------------------------------------------------
 
 function stockModeLabel(mode: string) {
@@ -304,23 +314,37 @@ function ProductStockPanel({ productId, productName, stockMode, deliveryTemplate
               <p className="text-xs font-medium text-text-muted uppercase tracking-wide">Template pesan pengiriman</p>
             </div>
             <p className="text-xs text-text-muted">
-              {isApiOnlyMode
-                ? <>
-                    Gunakan <code className="bg-surface-2 px-1 rounded text-[11px]">{'{{payload}}'}</code> untuk menyisipkan akun/voucher dari API,
-                    atau <code className="bg-surface-2 px-1 rounded text-[11px]">{'{{#each payloads}}...{{/each}}'}</code> jika ada beberapa baris.
-                    Kosongkan = kirim payload mentah dari API langsung ke customer.
-                  </>
-                : <>
-                    Gunakan <code className="bg-surface-2 px-1 rounded text-[11px]">{'{{payload}}'}</code> untuk menyisipkan isi stok,
-                    atau <code className="bg-surface-2 px-1 rounded text-[11px]">{'{{#each payloads}}...{{/each}}'}</code> untuk iterasi per item.
-                  </>
-              }
+              Jika diisi, pesan ini <strong>menggantikan seluruh notifikasi pengiriman</strong>.
+              Variabel: <code className="bg-surface-2 px-1 rounded text-[11px]">{'{{payload}}'}</code>{' '}
+              <code className="bg-surface-2 px-1 rounded text-[11px]">{'{{orderId}}'}</code>{' '}
+              <code className="bg-surface-2 px-1 rounded text-[11px]">{'{{quantity}}'}</code>
             </p>
+            {/* Preset picker */}
+            <div className="flex flex-wrap gap-1.5">
+              {DELIVERY_PRESETS.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => setTemplateDraft(p.body)}
+                  className={[
+                    'rounded-md border px-2.5 py-1 text-[11px] font-medium transition',
+                    templateDraft === p.body
+                      ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
+                      : 'border-border text-text-muted hover:border-brand-accent/50 hover:text-text',
+                  ].join(' ')}
+                >
+                  {p.label}
+                </button>
+              ))}
+              {templateDraft && !DELIVERY_PRESETS.some((p) => p.body === templateDraft) && (
+                <span className="rounded-md border border-dashed border-brand-accent px-2.5 py-1 text-[11px] text-brand-accent">
+                  ✏️ Custom
+                </span>
+              )}
+            </div>
             <Textarea
-              label="Template pesan (kosongkan = kirim payload langsung)"
-              placeholder={isApiOnlyMode
-                ? '✅ Pesanan kamu berhasil!\n\nDetail akun:\n{{payload}}\n\nTerima kasih sudah berbelanja! 🎉'
-                : 'Halo! Berikut akun kamu:\n\n{{#each payloads}}{{@index_1}}. {{this}}\n{{/each}}\nTerima kasih sudah berbelanja!'}
+              label="Template pesan (kosongkan = pakai notifikasi default sistem)"
+              placeholder="Pilih preset di atas atau ketik template sendiri…"
               value={templateDraft}
               rows={5}
               mono
