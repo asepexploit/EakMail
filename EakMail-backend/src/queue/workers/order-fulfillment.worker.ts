@@ -32,7 +32,6 @@ import { acquireLock, orderLockKey } from './lock.js';
 import { stockRepository } from '../../modules/products/stock.repository.js';
 import * as productRepository from '../../modules/products/product.repository.js';
 import { renderTemplate } from '../../workflow/variables.js';
-import { getStorefrontSender } from './storefront-sender.js';
 import { t } from '../../telegram/bot/i18n/index.js';
 import { MessageKey } from '../../telegram/bot/i18n/keys.js';
 import type { Language } from '@eakmail/shared-types';
@@ -109,7 +108,12 @@ async function sendFulfillingNotice(orderId: string): Promise<void> {
       productName: context.product.name,
       orderId,
     });
-    await getStorefrontSender().sendText(context.customer.telegramId, text);
+    // Enqueue with delay so this arrives naturally after the payment-confirmed message.
+    await getQueues()[QueueName.NOTIFICATIONS].add(
+      'fulfilling-notice',
+      { customerTelegramId: context.customer.telegramId, text },
+      { jobId: `fulfilling-notice-${orderId}`, delay: 4000 },
+    );
   } catch (err) {
     log.warn({ orderId, err }, 'fulfilling notice failed — continuing anyway');
   }
@@ -406,10 +410,11 @@ async function deliver(
   // we throw out and leave the order in FULFILLING — the worker safety-net in fulfill() routes
   // it to the refund path, which is far better than a DELIVERED row with no message ever sent.
   // The notification jobId dedupes a retried enqueue, and the Delivery row dedupes the content.
+  // Delay so the delivery message arrives naturally after the fulfilling-notice.
   await getQueues()[QueueName.NOTIFICATIONS].add(
     'deliver',
     { customerTelegramId, text },
-    { jobId: `deliver-${orderId}` },
+    { jobId: `deliver-${orderId}`, delay: 5000 },
   );
 
   await orderRepository.markDelivered(orderId);

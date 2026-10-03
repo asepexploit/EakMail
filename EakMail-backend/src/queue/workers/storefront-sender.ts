@@ -50,7 +50,20 @@ class TelegramBotSender implements StorefrontSender {
 
   async sendText(customerTelegramId: string, text: string): Promise<void> {
     const token = await this.resolveToken();
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const base = `https://api.telegram.org/bot${token}`;
+
+    // Show typing indicator — fire-and-forget; a failure here must not block the send.
+    await fetch(`${base}/sendChatAction`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: customerTelegramId, action: 'typing' }),
+    }).catch(() => {});
+
+    // Simulate realistic typing time: ~20ms per char, capped between 1–3 s.
+    const typingMs = Math.min(3000, Math.max(1000, text.length * 20));
+    await new Promise((r) => setTimeout(r, typingMs));
+
+    const res = await fetch(`${base}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ chat_id: customerTelegramId, text, parse_mode: 'Markdown' }),

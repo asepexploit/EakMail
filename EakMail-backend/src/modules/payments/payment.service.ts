@@ -206,7 +206,7 @@ async function sendPaymentConfirmedNotification(orderId: string): Promise<void> 
     await getQueues()[QueueName.NOTIFICATIONS].add(
       'payment-confirmed',
       { customerTelegramId: order.customer.telegramId, text },
-      { jobId: `payment-confirmed-${orderId}`, attempts: 3 },
+      { jobId: `payment-confirmed-${orderId}`, attempts: 3, delay: 500 },
     );
   } catch (err) {
     log.warn({ orderId, err }, 'payment confirmed notification failed — non-fatal');
