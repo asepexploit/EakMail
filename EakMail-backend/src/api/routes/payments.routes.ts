@@ -63,8 +63,22 @@ export async function paymentsRoutes(app: FastifyInstance): Promise<void> {
     const raw = req.body;
     if (!Buffer.isBuffer(raw)) throw new ValidationError('Expected raw webhook body');
 
+    const signature = readSignature(req);
+    // Log the incoming headers (omitting auth-sensitive values) to help diagnose signature issues.
+    log.info(
+      {
+        hasXSecret: Boolean(signature),
+        xSecretLen: signature?.length ?? 0,
+        headers: Object.fromEntries(
+          Object.entries(req.headers).filter(([k]) => !['authorization', 'cookie'].includes(k)),
+        ),
+        bodyLen: raw.length,
+      },
+      'Webhook received',
+    );
+
     // verifyWebhook throws ValidationError on bad signature → mapped to 400 below.
-    const event = await paymentService.verifyWebhook(raw, readSignature(req));
+    const event = await paymentService.verifyWebhook(raw, signature);
     log.info({ orderId: event.orderId, status: event.status }, 'Webhook processed');
     return reply.code(200).send({ received: true });
   });
