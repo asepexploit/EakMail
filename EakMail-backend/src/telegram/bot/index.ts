@@ -238,6 +238,21 @@ export async function buildBot(): Promise<StorefrontBot> {
         log.error({ err }, 'storefront bot launch error — bot offline, server continues');
       });
       log.info('storefront bot launched (long polling)');
+
+      // Register "/" command suggestions so users see them when typing "/" in chat.
+      const commands = [
+        { command: 'start',    description: 'Menu utama' },
+        { command: 'catalog',  description: 'Lihat katalog produk' },
+        { command: 'order',    description: 'Buat pesanan baru' },
+        { command: 'status',   description: 'Cek status pesanan' },
+        { command: 'saldo',    description: 'Cek saldo akun' },
+        { command: 'topup',    description: 'Isi saldo' },
+        { command: 'language', description: 'Ganti bahasa / Change language' },
+        { command: 'help',     description: 'Bantuan & informasi' },
+      ];
+      bot.telegram.setMyCommands(commands).catch((err) => {
+        log.warn({ err }, 'setMyCommands failed — command suggestions may not appear');
+      });
     },
     async stop(reason?: string) {
       registerSendApi(null);
