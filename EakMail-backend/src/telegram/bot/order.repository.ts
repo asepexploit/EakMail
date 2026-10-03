@@ -25,7 +25,6 @@ export async function createPendingOrder(input: {
   quantity: number;
   amount: number;
   idempotencyKey: string;
-  decrementStock?: number;
   /** Selected product option key (e.g. "seller") — stored on the first linked execution. */
   optionKey?: string;
   /** Selected product option value (e.g. "Netflix Premium") — passed to workflow variables. */
@@ -43,15 +42,10 @@ export async function createPendingOrder(input: {
     ? `${input.idempotencyKey}:${Date.now().toString(36)}`
     : input.idempotencyKey;
 
+  // Stock is decremented only when payment is confirmed (PAID), not on PENDING.
+  // This prevents stock from being locked by unpaid orders.
   try {
     return await prisma.$transaction(async (tx) => {
-      if (input.decrementStock && input.decrementStock > 0) {
-        await tx.product.update({
-          where: { id: input.productId },
-          data: { stock: { decrement: input.decrementStock } },
-        });
-      }
-
       return tx.order.create({
         data: {
           customerId: input.customerId,

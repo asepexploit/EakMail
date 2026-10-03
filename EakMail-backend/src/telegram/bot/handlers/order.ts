@@ -134,12 +134,9 @@ export async function runOrderFlow(
     quantity,
     amount: totalAmount,
     idempotencyKey: idempotencyKey(bot.customer.id, product.id, quantity, optionId),
-    decrementStock: isManualStock ? quantity : 0,
     optionKey: selectedOption?.key,
     optionValue: selectedOption?.value,
   });
-
-  if (isManualStock) invalidateCatalogCache();
 
   const isPaymentConfigured = Boolean(config.PAKASIR_API_KEY);
   const balance = bot.customer.balance;
@@ -207,8 +204,11 @@ export async function handlePayBalance(ctx: Context): Promise<void> {
     return;
   }
 
-  const paid = await orderRepository.markPaid(orderId);
+  // Decrement stock on PAID (manual stock mode only)
+  const isManualStock = order.product.stockMode === StockMode.MANUAL;
+  const paid = await orderRepository.markPaid(orderId, isManualStock ? order.quantity : 0);
   if (paid) {
+    if (isManualStock) invalidateCatalogCache();
     await getQueues()[QueueName.ORDER_FULFILLMENT].add(
       'fulfill',
       { orderId },

@@ -159,8 +159,21 @@ export const orderRepository = {
   /**
    * Move a PENDING order to PAID (poll fallback for a missed webhook). Returns true when
    * this call performed the transition, so fulfillment is enqueued exactly once.
+   * When `decrementStock` > 0 (manual stock mode), atomically deducts stock in the same tx.
    */
-  async markPaid(orderId: string): Promise<boolean> {
+  async markPaid(orderId: string, decrementStock = 0): Promise<boolean> {
+    if (decrementStock > 0) {
+      // Fetch productId for the stock update
+      const order = await prisma.order.findUnique({ where: { id: orderId }, select: { productId: true, status: true } });
+      if (!order || order.status !== OrderStatus.PENDING) return false;
+      await prisma.$transaction([
+        prisma.order.updateMany({ where: { id: orderId, status: OrderStatus.PENDING }, data: { status: OrderStatus.PAID } }),
+        prisma.product.update({ where: { id: order.productId }, data: { stock: { decrement: decrementStock } } }),
+      ]);
+      // Check the order actually transitioned (another process may have beaten us)
+      const updated = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
+      return updated?.status === OrderStatus.PAID;
+    }
     const res = await prisma.order.updateMany({
       where: { id: orderId, status: OrderStatus.PENDING },
       data: { status: OrderStatus.PAID },

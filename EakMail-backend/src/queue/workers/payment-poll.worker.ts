@@ -22,6 +22,7 @@ import {
   type PaymentPollJob,
 } from '../queues.js';
 import { orderRepository } from '../../modules/orders/order.repository.js';
+import { prisma } from '../../db/client.js';
 import type { WorkerBuildDeps } from './types.js';
 
 const log = logger.child({ module: 'payment-poll-worker' });
@@ -84,7 +85,15 @@ async function processPoll(job: Job<PaymentPollJob>): Promise<void> {
  * path) together ensure fulfillment is enqueued exactly once.
  */
 async function promoteToPaidAndFulfill(orderId: string): Promise<void> {
-  const promoted = await orderRepository.markPaid(orderId);
+  // Resolve quantity + stockMode to decrement stock atomically on PAID
+  const orderMeta = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { quantity: true, product: { select: { stockMode: true } } },
+  });
+  const isManualStock = orderMeta?.product.stockMode === 'MANUAL';
+  const decrementStock = isManualStock ? (orderMeta?.quantity ?? 0) : 0;
+
+  const promoted = await orderRepository.markPaid(orderId, decrementStock);
   if (!promoted) {
     log.info({ orderId }, 'poll: order already advanced — no enqueue');
     return;
