@@ -9,6 +9,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { LoginStepResponse, TelegramAccountDto } from '@eakmail/shared-types';
 import { accountService } from '../../modules/accounts/account.service.js';
+import { writeAudit } from '../middleware/audit.js';
 
 // Runtime validation at the API boundary (shared-types.md: validate even with
 // shared types). The parsed shapes correspond to StartLoginRequest /
@@ -49,13 +50,18 @@ export async function accountsRoutes(app: FastifyInstance): Promise<void> {
   // Step 2 of login: submit the code (and optional 2FA password).
   app.post('/login/code', async (request): Promise<LoginStepResponse> => {
     const body = submitCodeSchema.parse(request.body);
-    return accountService.submitCode(body.loginId, body.code, body.password);
+    const result = await accountService.submitCode(body.loginId, body.code, body.password);
+    if (result.done) {
+      void writeAudit({ adminUserId: request.admin?.id, action: 'account.login', meta: { loginId: body.loginId } });
+    }
+    return result;
   });
 
   // Remove an account.
   app.delete('/:id', async (request, reply): Promise<void> => {
     const { id } = idParamSchema.parse(request.params);
     await accountService.remove(id);
+    void writeAudit({ adminUserId: request.admin?.id, action: 'account.delete', target: id });
     await reply.code(204).send();
   });
 }

@@ -7,6 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { ValidationError } from '../../lib/errors.js';
 import * as botConfigService from '../../modules/bot-config/bot-config.service.js';
+import { writeAudit } from '../middleware/audit.js';
 
 const menuButtonSchema = z.object({
   label: z.string().min(1),
@@ -48,6 +49,8 @@ export async function botConfigRoutes(app: FastifyInstance): Promise<void> {
 
   app.put('/', async (request) => {
     const body = parse(updateSchema, request.body);
-    return botConfigService.updateBotConfig(body);
+    const updated = await botConfigService.updateBotConfig(body);
+    void writeAudit({ adminUserId: request.admin?.id, action: 'bot_config.update' });
+    return updated;
   });
 }

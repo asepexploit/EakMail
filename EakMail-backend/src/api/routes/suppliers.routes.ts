@@ -15,6 +15,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { ValidationError } from '../../lib/errors.js';
 import * as supplierService from '../../modules/suppliers/supplier.service.js';
+import { writeAudit } from '../middleware/audit.js';
 
 const upsertSupplierSchema = z.object({
   name: z.string().min(1),
@@ -63,15 +64,21 @@ export const suppliersRoutes: FastifyPluginAsync = async (app) => {
   app.post('/suppliers', async (request, reply): Promise<SupplierDto> => {
     const created = await supplierService.createSupplier(parseBody(request.body));
     reply.code(201);
+    void writeAudit({ adminUserId: request.admin?.id, action: 'supplier.create', target: created.id });
     return created;
   });
 
   app.put<{ Params: IdParam }>('/suppliers/:id', async (request): Promise<SupplierDto> => {
-    return supplierService.updateSupplier(parseId(request.params), parseBody(request.body));
+    const id = parseId(request.params);
+    const updated = await supplierService.updateSupplier(id, parseBody(request.body));
+    void writeAudit({ adminUserId: request.admin?.id, action: 'supplier.update', target: id });
+    return updated;
   });
 
   app.delete<{ Params: IdParam }>('/suppliers/:id', async (request, reply): Promise<void> => {
-    await supplierService.deleteSupplier(parseId(request.params));
+    const id = parseId(request.params);
+    await supplierService.deleteSupplier(id);
+    void writeAudit({ adminUserId: request.admin?.id, action: 'supplier.delete', target: id });
     reply.code(204);
   });
 

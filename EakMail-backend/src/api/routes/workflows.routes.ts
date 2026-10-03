@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { ValidationError } from '../../lib/errors.js';
 import * as workflowService from '../../modules/workflows/workflow.service.js';
 import { workflowGraphSchema } from './schemas/workflow-graph.schema.js';
+import { writeAudit } from '../middleware/audit.js';
 
 const upsertWorkflowSchema = z.object({
   name: z.string().min(1),
@@ -63,22 +64,30 @@ export const workflowsRoutes: FastifyPluginAsync = async (app) => {
   app.post('/workflows', async (request, reply): Promise<WorkflowDto> => {
     const created = await workflowService.createWorkflow(parseBody(request.body));
     reply.code(201);
+    void writeAudit({ adminUserId: request.admin?.id, action: 'workflow.create', target: created.id, meta: { name: created.name } });
     return created;
   });
 
   app.put<{ Params: IdParam }>('/workflows/:id', async (request): Promise<WorkflowDto> => {
-    return workflowService.updateWorkflow(parseId(request.params), parseBody(request.body));
+    const id = parseId(request.params);
+    const updated = await workflowService.updateWorkflow(id, parseBody(request.body));
+    void writeAudit({ adminUserId: request.admin?.id, action: 'workflow.update', target: id, meta: { name: updated.name } });
+    return updated;
   });
 
   app.patch<{ Params: IdParam }>('/workflows/:id/active', async (request): Promise<WorkflowDto> => {
     const id = parseId(request.params);
     const body = z.object({ isActive: z.boolean() }).safeParse(request.body);
     if (!body.success) throw new ValidationError('isActive (boolean) is required.');
-    return workflowService.toggleActive(id, body.data.isActive);
+    const updated = await workflowService.toggleActive(id, body.data.isActive);
+    void writeAudit({ adminUserId: request.admin?.id, action: 'workflow.toggle_active', target: id, meta: { isActive: body.data.isActive } });
+    return updated;
   });
 
   app.delete<{ Params: IdParam }>('/workflows/:id', async (request, reply): Promise<void> => {
-    await workflowService.deleteWorkflow(parseId(request.params));
+    const id = parseId(request.params);
+    await workflowService.deleteWorkflow(id);
+    void writeAudit({ adminUserId: request.admin?.id, action: 'workflow.delete', target: id });
     reply.code(204);
   });
 
