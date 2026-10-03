@@ -10,6 +10,7 @@
  * The bot is stateless; all per-customer state lives in the DB. Copy is never hardcoded —
  * every reply routes through the i18n resolver with bot_config overrides.
  */
+import https from 'https';
 import { Telegraf, type Context } from 'telegraf';
 import { config } from '../../config/index.js';
 import { logger } from '../../lib/logger.js';
@@ -192,7 +193,9 @@ export async function buildBot(): Promise<StorefrontBot> {
 
   // Telegraf requires a non-empty token to construct; use a placeholder when mocking so
   // the instance exists for wiring/tests without ever connecting.
-  const bot = new Telegraf(token ?? 'mock-token');
+  // Force IPv4 via custom agent — some VPS block IPv6 causing node-fetch ETIMEDOUT.
+  const ipv4Agent = new https.Agent({ family: 4 });
+  const bot = new Telegraf(token ?? 'mock-token', { telegram: { agent: ipv4Agent } });
   registerHandlers(bot);
 
   if (isMock) {
