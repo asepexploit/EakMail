@@ -94,28 +94,18 @@ function CanvasInner({
   const onGraphChangeRef = useRef(onGraphChange);
   onGraphChangeRef.current = onGraphChange;
 
-  // Reseed React Flow when the incoming graph is a structurally different set of nodes/edges
-  // (workflow loaded, rolled back, node added/deleted from the page). Compares structural ids,
-  // so ordinary drag edits — which flow OUT below — don't loop back in. This is idempotent,
-  // so React StrictMode's double-invoke is harmless.
-  const lastGraphSig = useRef(graphSignature(graph));
+  // Reseed React Flow whenever graph changes (load, rollback, add/delete, config edit).
+  // The write-back effect below guards against looping: it only fires when the structural
+  // signature (ids + positions) differs from what we last seeded, so a config-only reseed
+  // does not trigger an onGraphChange call back to the page.
+  const lastSeedSig = useRef(graphSignature(graph));
   useEffect(() => {
     const incoming = graphSignature(graph);
-    if (incoming !== lastGraphSig.current) {
-      lastGraphSig.current = incoming;
-      setNodes(toFlowNodes(graph));
-      setEdges(toFlowEdges(graph));
-    } else {
-      // Structure unchanged but config may have been edited via the config panel.
-      // Patch each node's data.node in-place so the canvas body re-renders.
-      setNodes((current) =>
-        current.map((flowNode) => {
-          const updated = graph.nodes.find((n) => n.id === flowNode.id);
-          if (!updated) return flowNode;
-          return { ...flowNode, data: { ...flowNode.data, node: updated } };
-        }),
-      );
-    }
+    const sigChanged = incoming !== lastSeedSig.current;
+    if (sigChanged) lastSeedSig.current = incoming;
+    // Always update node data so config panel changes appear on the canvas immediately.
+    setNodes(toFlowNodes(graph));
+    if (sigChanged) setEdges(toFlowEdges(graph));
   }, [graph, setNodes, setEdges]);
 
   // Write React Flow's state back to the domain graph — but ONLY when it structurally differs
@@ -125,8 +115,8 @@ function CanvasInner({
   // node or edge, reconnect) changes the signature and propagates out.
   useEffect(() => {
     const currentSig = flowSignature(nodes, edges);
-    if (currentSig === lastGraphSig.current) return;
-    lastGraphSig.current = currentSig;
+    if (currentSig === lastSeedSig.current) return;
+    lastSeedSig.current = currentSig;
     onGraphChangeRef.current(fromFlow(nodes, edges, graphRef.current));
   }, [nodes, edges]);
 
