@@ -118,11 +118,15 @@ export function WorkflowBuilderPage() {
   }
 
   async function handleSave() {
-    const saved = await saveWorkflow.mutateAsync({
-      id: isNew ? undefined : (id as string),
-      body: buildRequest(),
-    });
-    if (isNew) navigate(`/workflows/${saved.id}`, { replace: true });
+    try {
+      const saved = await saveWorkflow.mutateAsync({
+        id: isNew ? undefined : (id as string),
+        body: buildRequest(),
+      });
+      if (isNew) navigate(`/workflows/${saved.id}`, { replace: true });
+    } catch {
+      // onError in useSaveWorkflow already shows a toast; swallow here to avoid unhandled rejection.
+    }
   }
 
   async function handleValidate() {
