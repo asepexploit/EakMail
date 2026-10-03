@@ -29,6 +29,9 @@ export function SettingsPage() {
   const disableTotp = useDisableTotp();
   const updatePakasir = useUpdatePakasir();
 
+  const settings = settingsQuery.data;
+  const totpEnabled = userQuery.data?.totpEnabled ?? false;
+
   // Pakasir config draft — synced from server on first load.
   const [pakasirDraft, setPakasirDraft] = useState<PakasirConfigUpdate>({
     mode: 'production',
@@ -45,9 +48,6 @@ export function SettingsPage() {
       }));
     }
   }, [settings?.pakasir]);
-
-  const settings = settingsQuery.data;
-  const totpEnabled = userQuery.data?.totpEnabled ?? false;
 
   async function handleStartSetup() {
     const result = await setupTotp.mutateAsync();
