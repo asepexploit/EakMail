@@ -264,7 +264,7 @@ async function logMessageDirect(
   });
   if (oldest.length > 0) {
     await prisma.monitorMessage.deleteMany({
-      where: { id: { in: oldest.map((r) => r.id) } },
+      where: { id: { in: oldest.map((r: { id: string }) => r.id) } },
     });
   }
 
@@ -284,8 +284,8 @@ async function logMessageDirect(
 function extractUsername(rawLink: string): string | null {
   const m = rawLink.match(/(?:https?:\/\/)?t\.me\/([^\s?#/]+)/i);
   if (!m) return null;
-  if (m[1].startsWith('+')) return null; // private invite — no username to check
-  return m[1].toLowerCase();
+  if (m[1]!.startsWith('+')) return null; // private invite — no username to check
+  return m[1]!.toLowerCase();
 }
 
 /** Return true if the link is a direct post link (t.me/username/123) — not a join link. */
@@ -509,9 +509,9 @@ async function processNext(accountId: string, maxPerHour: number): Promise<void>
       sourceGroup: item.sourceGroup,
       targetGroup: item.rawLink,
       rawLink: item.rawLink,
-      ok: result.ok,
-      alreadyMember: result.alreadyMember ?? false,
-      error: result.error ?? null,
+      ok: result?.ok ?? false,
+      alreadyMember: result?.alreadyMember ?? false,
+      error: result?.error ?? null,
     },
   });
 
@@ -521,12 +521,12 @@ async function processNext(accountId: string, maxPerHour: number): Promise<void>
   });
 
   log.info(
-    { accountId, rawLink: item.rawLink, ok: result.ok, alreadyMember: result.alreadyMember },
+    { accountId, rawLink: item.rawLink, ok: result?.ok, alreadyMember: result?.alreadyMember },
     'queue: item processed',
   );
 
   // Check send permission after join, leave if read-only
-  if (result.ok && !result.alreadyMember) {
+  if (result?.ok && !result?.alreadyMember) {
     void checkAndLeaveIfReadOnly(accountId, freshAccount.sessionEnc, item.rawLink, item.rawLink)
       .then(({ kept, reason }) =>
         log.info({ accountId, rawLink: item.rawLink, kept, reason }, 'queue: send-check done'),

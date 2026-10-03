@@ -9,6 +9,7 @@ import { promotionAccountRepository } from '../../modules/promotion/promotion.re
 import { monitoredGroupRepository } from '../../modules/monitor/monitor.repository.js';
 import { syncAccountGroups, leaveGroup } from '../../modules/monitor/monitor-groups.service.js';
 import { startMonitor, stopMonitor, isMonitorRunning, setMessageLogEnabled } from '../../modules/promotion/auto-join-monitor.js';
+import type { MonitoredGroupStatus } from '@prisma/client';
 
 const idParam = z.object({ id: z.string().min(1) });
 
@@ -69,8 +70,8 @@ export async function monitorRoutes(app: FastifyInstance): Promise<void> {
   app.post('/accounts/:id/sync', async (req) => {
     const { id } = idParam.parse(req.params);
     const account = await promotionAccountRepository.findById(id);
-    if (!account) throw app.httpErrors.notFound('Account not found');
-    if (!account.sessionEnc) throw app.httpErrors.badRequest('No session');
+    if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
+    if (!account.sessionEnc) { const e = new Error('No session'); (e as any).statusCode = 400; throw e; }
     await syncAccountGroups(id, account.sessionEnc);
     const count = await monitoredGroupRepository.countByAccount(id);
     return { ok: true, activeGroups: count };
@@ -87,7 +88,7 @@ export async function monitorRoutes(app: FastifyInstance): Promise<void> {
     const rows = await prisma.monitoredGroup.findMany({
       where: {
         ...(accountId ? { accountId } : {}),
-        ...(status ? { status } : {}),
+        ...(status ? { status: status as MonitoredGroupStatus } : {}),
       },
       include: { account: { select: { label: true, phone: true } } },
       orderBy: { joinedAt: 'desc' },
@@ -118,9 +119,9 @@ export async function monitorRoutes(app: FastifyInstance): Promise<void> {
       where: { id },
       include: { account: { select: { sessionEnc: true } } },
     });
-    if (!group) throw app.httpErrors.notFound('Group not found');
+    if (!group) { const e = new Error('Group not found'); (e as any).statusCode = 404; throw e; }
     if (group.status === 'LEFT') return { ok: true, alreadyLeft: true };
-    if (!group.account.sessionEnc) throw app.httpErrors.badRequest('No session');
+    if (!group.account.sessionEnc) { const e = new Error('No session'); (e as any).statusCode = 400; throw e; }
 
     await leaveGroup(group.accountId, group.account.sessionEnc, group.chatId);
     await monitoredGroupRepository.setStatus(id, 'LEFT', new Date());
@@ -131,7 +132,7 @@ export async function monitorRoutes(app: FastifyInstance): Promise<void> {
   app.post('/accounts/:id/leave-readonly', async (req) => {
     const { id } = idParam.parse(req.params);
     const account = await promotionAccountRepository.findById(id);
-    if (!account?.sessionEnc) throw app.httpErrors.badRequest('No session');
+    if (!account?.sessionEnc) { const e = new Error('No session'); (e as any).statusCode = 400; throw e; }
 
     const readOnly = await prisma.monitoredGroup.findMany({
       where: { accountId: id, status: 'READ_ONLY' },

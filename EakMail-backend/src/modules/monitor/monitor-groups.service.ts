@@ -84,7 +84,7 @@ export async function syncAccountGroups(accountId: string, sessionEnc: string): 
 function resolveEntityInput(chatIdOrLink: string): string {
   // https://t.me/username or t.me/username → username
   const urlMatch = chatIdOrLink.match(/(?:https?:\/\/)?t\.me\/([^\s?#/+]+)/i);
-  if (urlMatch) return urlMatch[1];
+  if (urlMatch?.[1]) return urlMatch[1];
   // @username → username
   if (chatIdOrLink.startsWith('@')) return chatIdOrLink.slice(1);
   // numeric chatId like -100123 → return as-is

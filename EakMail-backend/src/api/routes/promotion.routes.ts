@@ -89,7 +89,7 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
   app.get('/accounts/:id/stats', async (req) => {
     const { id } = idParam.parse(req.params);
     const account = await promotionAccountRepository.findById(id);
-    if (!account) throw app.httpErrors.notFound('Account not found');
+    if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
 
     const [statRows, lastSent, sentGroups] = await Promise.all([
       promotionLogRepository.statsByAccount(id),
@@ -145,7 +145,7 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
   app.get('/accounts/:id/auto-join/status', async (req) => {
     const { id } = idParam.parse(req.params);
     const account = await promotionAccountRepository.findById(id);
-    if (!account) throw app.httpErrors.notFound('Account not found');
+    if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
     return {
       autoJoinEnabled: account.autoJoinEnabled,
       autoJoinMaxPerHour: account.autoJoinMaxPerHour,
@@ -177,17 +177,15 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
     const { id } = idParam.parse(req.params);
     const { groups } = z.object({ groups: z.array(z.string().min(1)).min(1) }).parse(req.body);
     const account = await promotionAccountRepository.findById(id);
-    if (!account) throw app.httpErrors.notFound('Account not found');
-    if (!account.sessionEnc) throw app.httpErrors.badRequest('Account has no active session');
+    if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
+    if (!account.sessionEnc) { const e = new Error('Account has no active session'); (e as any).statusCode = 400; throw e; }
     const results = await joinGroups(account.sessionEnc, groups);
 
-    // After joining, upsert each successful join into MonitoredGroup
-    // (check send permission and leave if read-only)
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
-      if (r.ok) {
-        // Pass the raw link as chatId — checkAndLeaveIfReadOnly resolves entity from it
-        void checkAndLeaveIfReadOnly(id, account.sessionEnc, groups[i], groups[i]).catch(() => undefined);
+      const grp = groups[i];
+      if (r?.ok && grp && account.sessionEnc) {
+        void checkAndLeaveIfReadOnly(id, account.sessionEnc, grp, grp).catch(() => undefined);
       }
     }
 
@@ -197,8 +195,8 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
   app.get('/accounts/:id/groups', async (req) => {
     const { id } = idParam.parse(req.params);
     const account = await promotionAccountRepository.findById(id);
-    if (!account) throw app.httpErrors.notFound('Account not found');
-    if (!account.sessionEnc) throw app.httpErrors.badRequest('Account has no active session');
+    if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
+    if (!account.sessionEnc) { const e = new Error('Account has no active session'); (e as any).statusCode = 400; throw e; }
     return fetchAccountGroups(account.sessionEnc);
   });
 
@@ -239,15 +237,16 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
   app.post('/campaigns/:id/join', async (req) => {
     const { id } = idParam.parse(req.params);
     const campaign = await promotionCampaignRepository.findById(id);
-    if (!campaign) throw app.httpErrors.notFound('Campaign not found');
+    if (!campaign) { const e = new Error('Campaign not found'); (e as any).statusCode = 404; throw e; }
 
     const accountIds: string[] = campaign.accounts.map((ca: { accountId: string }) => ca.accountId);
     const allResults: Array<{ accountId: string; accountLabel: string; group: string; ok: boolean; alreadyMember?: boolean; error?: string }> = [];
+    const targetGroups: string[] = Array.isArray(campaign.targetGroups) ? campaign.targetGroups as string[] : [];
 
     for (const accountId of accountIds) {
       const account = await promotionAccountRepository.findById(accountId);
       if (!account?.sessionEnc) {
-        allResults.push(...campaign.targetGroups.map((g: string) => ({
+        allResults.push(...targetGroups.map((g: string) => ({
           accountId,
           accountLabel: account?.label ?? accountId,
           group: g,
@@ -256,7 +255,7 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
         })));
         continue;
       }
-      const results = await joinGroups(account.sessionEnc, campaign.targetGroups as string[]);
+      const results = await joinGroups(account.sessionEnc, targetGroups);
       allResults.push(...results.map((r) => ({
         accountId,
         accountLabel: account.label,

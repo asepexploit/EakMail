@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma, MonitoredGroupStatus } from '@prisma/client';
 import { prisma } from '../../db/client.js';
 
 export const monitoredGroupRepository = {
@@ -21,7 +21,7 @@ export const monitoredGroupRepository = {
     });
   },
 
-  setStatus(id: string, status: string, leftAt?: Date) {
+  setStatus(id: string, status: MonitoredGroupStatus, leftAt?: Date) {
     return prisma.monitoredGroup.update({
       where: { id },
       data: { status, leftAt: leftAt ?? undefined },

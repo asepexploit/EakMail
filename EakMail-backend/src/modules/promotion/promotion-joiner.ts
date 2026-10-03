@@ -27,7 +27,7 @@ export function normalizeGroupIdentifier(raw: string): { type: 'username' | 'inv
   const s = raw.trim();
   // Extract path from URL-like strings
   const urlMatch = s.match(/(?:https?:\/\/)?t\.me\/([^\s?#]+)/i);
-  if (urlMatch) {
+  if (urlMatch?.[1]) {
     const path = urlMatch[1];
     if (path.startsWith('+')) {
       return { type: 'invite', value: path.slice(1) }; // private invite hash
