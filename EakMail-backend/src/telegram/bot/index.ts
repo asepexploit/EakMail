@@ -149,9 +149,9 @@ function registerHandlers(bot: Telegraf): void {
   // Balance top-up manual prompt button.
   bot.action('topup:prompt', handleTopupPromptCallback);
 
-  // No-op button (e.g. out-of-stock indicator) — just acknowledge the tap.
+  // No-op button (e.g. out-of-stock indicator) — show a brief toast, not a full message.
   bot.action('noop', async (ctx) => {
-    await ctx.answerCbQuery();
+    await ctx.answerCbQuery('❌ Stok habis', { show_alert: false });
   });
 
   // Language selection: "lang:<code>".
