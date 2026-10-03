@@ -15,6 +15,23 @@ const STYLE_BG: Record<string, string> = {
   danger:  '#dc2626',
 };
 
+/** Mirror the backend pairing logic: half buttons share a row, full buttons get their own. */
+function buildPreviewRows(menu: BotMenuButton[]): BotMenuButton[][] {
+  const rows: BotMenuButton[][] = [];
+  let halfBuffer: BotMenuButton | null = null;
+  for (const btn of menu) {
+    if (btn.width === 'half') {
+      if (halfBuffer) { rows.push([halfBuffer, btn]); halfBuffer = null; }
+      else halfBuffer = btn;
+    } else {
+      if (halfBuffer) { rows.push([halfBuffer]); halfBuffer = null; }
+      rows.push([btn]);
+    }
+  }
+  if (halfBuffer) rows.push([halfBuffer]);
+  return rows;
+}
+
 /** Live preview of a sample bot message (DESIGN_SYSTEM.md §7.4b). Display-only. */
 export function BotPreview({ brandName, welcome, startPhotoUrl, menu, locale }: BotPreviewProps) {
   return (
@@ -47,19 +64,23 @@ export function BotPreview({ brandName, welcome, startPhotoUrl, menu, locale }: 
         </div>
 
         {menu.length > 0 && (
-          <div className="mt-2 flex flex-col gap-1.5">
-            {menu.map((button, index) => {
-              const bg = button.style ? STYLE_BG[button.style] : '#374151';
-              return (
-                <span
-                  key={index}
-                  className="rounded-sm px-2 py-1.5 text-center text-xs font-medium text-white"
-                  style={{ backgroundColor: bg }}
-                >
-                  {button.label || button.action || '—'}
-                </span>
-              );
-            })}
+          <div className="mt-2 space-y-1.5">
+            {buildPreviewRows(menu).map((row, ri) => (
+              <div key={ri} className={row.length === 2 ? 'grid grid-cols-2 gap-1.5' : 'flex'}>
+                {row.map((button, bi) => {
+                  const bg = button.style ? STYLE_BG[button.style] : '#374151';
+                  return (
+                    <span
+                      key={bi}
+                      className="flex-1 rounded-sm px-2 py-1.5 text-center text-xs font-medium text-white"
+                      style={{ backgroundColor: bg }}
+                    >
+                      {button.label || button.action || '—'}
+                    </span>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         )}
       </div>

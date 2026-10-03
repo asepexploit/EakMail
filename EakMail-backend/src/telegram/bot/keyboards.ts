@@ -65,13 +65,30 @@ export function mainMenuKeyboard(
   tr: Translator,
 ): Markup.Markup<InlineKeyboardMarkup> {
   const source = runtime.menu.length > 0 ? runtime.menu : DEFAULT_MENU;
-  const rows = source.map((btn) => {
+  const rows: InlineKeyboardButton[][] = [];
+  let halfBuffer: InlineKeyboardButton | null = null;
+
+  for (const btn of source) {
     const label = resolveLabel(btn.label, tr);
-    if (btn.url) {
-      return [styledUrl(label, btn.url, btn.style)];
+    const btnObj = btn.url
+      ? styledUrl(label, btn.url, btn.style)
+      : styledCallback(label, `${MENU_ACTION_PREFIX}:${btn.action}`, btn.style);
+
+    if (btn.width === 'half') {
+      if (halfBuffer) {
+        rows.push([halfBuffer, btnObj]);
+        halfBuffer = null;
+      } else {
+        halfBuffer = btnObj;
+      }
+    } else {
+      // Full-width: flush any orphaned half button first, then add full row.
+      if (halfBuffer) { rows.push([halfBuffer]); halfBuffer = null; }
+      rows.push([btnObj]);
     }
-    return [styledCallback(label, `${MENU_ACTION_PREFIX}:${btn.action}`, btn.style)];
-  });
+  }
+  if (halfBuffer) rows.push([halfBuffer]);
+
   return Markup.inlineKeyboard(rows);
 }
 

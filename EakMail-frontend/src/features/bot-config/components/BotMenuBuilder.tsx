@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Link, Plus, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Columns2, Link, Maximize2, Plus, X } from 'lucide-react';
 import type { BotMenuButton, ButtonStyle } from '@eakmail/shared-types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -102,8 +102,37 @@ export function BotMenuBuilder({ menu, onChange }: BotMenuBuilderProps) {
             </div>
           </div>
 
-          {/* Row 2: style selector + optional URL */}
+          {/* Row 2: width toggle + style selector + optional URL */}
           <div className="flex flex-wrap items-center gap-3">
+            {/* Width toggle */}
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-text-muted">Lebar:</span>
+              <button
+                type="button"
+                title="Penuh (1 tombol per baris)"
+                onClick={() => update(index, { width: undefined })}
+                className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium transition border ${
+                  !item.width || item.width === 'full'
+                    ? 'border-brand bg-brand/10 text-brand'
+                    : 'border-border text-text-muted hover:border-border/80'
+                }`}
+              >
+                <Maximize2 className="h-3 w-3" /> Penuh
+              </button>
+              <button
+                type="button"
+                title="Setengah (2 tombol per baris)"
+                onClick={() => update(index, { width: 'half' })}
+                className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium transition border ${
+                  item.width === 'half'
+                    ? 'border-brand bg-brand/10 text-brand'
+                    : 'border-border text-text-muted hover:border-border/80'
+                }`}
+              >
+                <Columns2 className="h-3 w-3" /> Setengah
+              </button>
+            </div>
+
             {/* Style pills */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs text-text-muted">Warna:</span>

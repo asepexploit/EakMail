@@ -14,6 +14,7 @@ const menuButtonSchema = z.object({
   action: z.string().min(1),
   style: z.enum(['success', 'primary', 'danger']).optional(),
   url: z.string().url().optional(),
+  width: z.enum(['full', 'half']).optional(),
 });
 
 const localeTextsSchema = z.record(z.string(), z.string());

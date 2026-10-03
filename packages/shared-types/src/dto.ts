@@ -223,6 +223,8 @@ export interface BotMenuButton {
   style?: ButtonStyle;
   /** Optional URL for url buttons (opens in browser, not a callback) */
   url?: string;
+  /** Row width: "full" = own row (default), "half" = paired with adjacent half button */
+  width?: 'full' | 'half';
 }
 export interface BotConfigDto {
   id: string;
