@@ -11,7 +11,7 @@ import {
   useDeletePromotionAccount,
   useAccountStats,
 } from '@/features/promotion/api/usePromotionAccounts';
-import type { AccountStats } from '@/features/promotion/api/usePromotionAccounts';
+
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Dialog } from '@/components/ui/Dialog';

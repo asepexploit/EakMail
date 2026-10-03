@@ -6,7 +6,6 @@ import { useState } from 'react';
 import { Radio, ChevronDown, ChevronUp, CheckCircle, XCircle, AlertCircle, Activity } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/lib/http';
-import { Button } from '@/components/ui/Button';
 
 interface MonitorStatus {
   autoJoinEnabled: boolean;
