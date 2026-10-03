@@ -177,6 +177,30 @@ export const orderService = {
   },
 
   /**
+   * Manual cancel (admin): forcibly expire a PENDING order that the customer won't pay.
+   * Only allowed from PENDING — a paid or delivered order cannot be cancelled this way.
+   */
+  async cancelOrder(id: string): Promise<OrderDto> {
+    const order = await orderRepository.findById(id);
+    if (!order) throw new NotFoundError('Order');
+
+    if (order.status !== OrderStates.PENDING) {
+      throw new ConflictError(`Cannot cancel an order in status ${order.status}`);
+    }
+
+    const cancelled = await orderRepository.markExpired(id);
+    if (!cancelled) {
+      const current = await orderRepository.findById(id);
+      if (current) return toOrderDto(current);
+      throw new NotFoundError('Order');
+    }
+
+    log.info({ orderId: id }, 'order manually cancelled (EXPIRED)');
+    const updated = await orderRepository.findById(id);
+    return toOrderDto(updated ?? order);
+  },
+
+  /**
    * Manual refund (admin): enter the refund path for a failed-after-payment order.
    * Moves FAILED → REFUND_PENDING (if needed) then settles via the payments refund service.
    * Idempotent: a repeated refund never double-credits or double-notifies.

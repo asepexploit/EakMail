@@ -155,6 +155,8 @@ export const api = {
     retry: (id: string) => http.post<OrderDetailDto>(`/orders/${id}/retry`),
     /** Trigger a refund through the payment provider. */
     refund: (id: string) => http.post<OrderDetailDto>(`/orders/${id}/refund`),
+    /** Forcibly expire a PENDING order (admin manual cancel). */
+    cancel: (id: string) => http.post<OrderDetailDto>(`/orders/${id}/cancel`),
   },
 
   customers: {

@@ -19,11 +19,15 @@ export function useOrder(id: string | null) {
   });
 }
 
-function useOrderAction(action: 'retry' | 'refund', successMessage: string) {
+function useOrderAction(action: 'retry' | 'refund' | 'cancel', successMessage: string) {
   const client = useQueryClient();
   const toast = useToasts();
   return useMutation({
-    mutationFn: (id: string) => (action === 'retry' ? api.orders.retry(id) : api.orders.refund(id)),
+    mutationFn: (id: string) => {
+      if (action === 'retry') return api.orders.retry(id);
+      if (action === 'refund') return api.orders.refund(id);
+      return api.orders.cancel(id);
+    },
     onSuccess: (order) => {
       toast.success(successMessage);
       client.setQueryData(queryKeys.orders.detail(order.id), order);
@@ -39,4 +43,8 @@ export function useRetryOrder() {
 
 export function useRefundOrder() {
   return useOrderAction('refund', strings.toast.saved);
+}
+
+export function useCancelOrder() {
+  return useOrderAction('cancel', strings.toast.saved);
 }

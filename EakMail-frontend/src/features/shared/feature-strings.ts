@@ -161,6 +161,7 @@ export const featureStrings = {
     payment: 'Pembayaran',
     retryConfirm: 'Jalankan ulang pemenuhan untuk pesanan ini?',
     refundConfirm: 'Proses refund untuk pesanan ini? Tindakan ini tidak dapat dibatalkan.',
+    cancelConfirm: 'Batalkan pesanan ini? Status akan berubah menjadi EXPIRED dan pesanan tidak dapat diproses lagi.',
     filterStatus: 'Status',
     filterFrom: 'Dari Tanggal',
     filterTo: 'Sampai Tanggal',

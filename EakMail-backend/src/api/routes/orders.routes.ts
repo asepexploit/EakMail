@@ -7,6 +7,7 @@
  *   GET  /api/orders/:id        order detail (payment + delivery timestamp)
  *   POST /api/orders/:id/retry  re-arm a failed order and re-enqueue fulfillment
  *   POST /api/orders/:id/refund enter the refund path for a failed-after-payment order
+ *   POST /api/orders/:id/cancel forcibly expire a PENDING order (admin manual cancel)
  */
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -59,5 +60,10 @@ export async function ordersRoutes(app: FastifyInstance): Promise<void> {
     const { id } = parse(idParamSchema, request.params);
     const body = parse(refundBodySchema, request.body ?? {});
     return orderService.refundOrder(id, body.notifyText);
+  });
+
+  app.post('/:id/cancel', async (request) => {
+    const { id } = parse(idParamSchema, request.params);
+    return orderService.cancelOrder(id);
   });
 }

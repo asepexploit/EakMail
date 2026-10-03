@@ -11,7 +11,7 @@ import { Drawer, ConfirmDialog } from '@/components/ui';
 import { QueryBoundary } from '@/features/shared/QueryBoundary';
 import { featureStrings } from '@/features/shared/feature-strings';
 import { orderStatusLabel, paymentMethodLabel, paymentStatusLabel } from '@/features/shared/enum-labels';
-import { useOrder, useRefundOrder, useRetryOrder } from '@/features/orders/api/useOrders';
+import { useCancelOrder, useOrder, useRefundOrder, useRetryOrder } from '@/features/orders/api/useOrders';
 import { OrderTimeline } from './OrderTimeline.js';
 
 export interface OrderDetailDrawerProps {
@@ -24,7 +24,8 @@ export function OrderDetailDrawer({ orderId, onClose }: OrderDetailDrawerProps) 
   const { data, isLoading, isError, refetch } = useOrder(orderId);
   const retryOrder = useRetryOrder();
   const refundOrder = useRefundOrder();
-  const [confirm, setConfirm] = useState<'retry' | 'refund' | null>(null);
+  const cancelOrder = useCancelOrder();
+  const [confirm, setConfirm] = useState<'retry' | 'refund' | 'cancel' | null>(null);
 
   const refundable: OrderStatus[] = [
     OrderStatus.PAID,
@@ -35,6 +36,7 @@ export function OrderDetailDrawer({ orderId, onClose }: OrderDetailDrawerProps) 
   const retryable: OrderStatus[] = [OrderStatus.FAILED, OrderStatus.FULFILLING];
   const canRefund = data && refundable.includes(data.status);
   const canRetry = data && retryable.includes(data.status);
+  const canCancel = data && data.status === OrderStatus.PENDING;
 
   return (
     <>
@@ -46,6 +48,13 @@ export function OrderDetailDrawer({ orderId, onClose }: OrderDetailDrawerProps) 
         footer={
           data && (
             <>
+              <Button
+                variant="secondary"
+                onClick={() => setConfirm('cancel')}
+                disabled={!canCancel}
+              >
+                Batalkan
+              </Button>
               <Button
                 variant="secondary"
                 onClick={() => setConfirm('retry')}
@@ -136,17 +145,20 @@ export function OrderDetailDrawer({ orderId, onClose }: OrderDetailDrawerProps) 
       <ConfirmDialog
         open={confirm !== null}
         onClose={() => setConfirm(null)}
-        destructive={confirm === 'refund'}
+        destructive={confirm === 'refund' || confirm === 'cancel'}
         message={
           confirm === 'refund'
             ? featureStrings.orders.refundConfirm
-            : featureStrings.orders.retryConfirm
+            : confirm === 'cancel'
+              ? featureStrings.orders.cancelConfirm
+              : featureStrings.orders.retryConfirm
         }
-        isLoading={retryOrder.isPending || refundOrder.isPending}
+        isLoading={retryOrder.isPending || refundOrder.isPending || cancelOrder.isPending}
         onConfirm={async () => {
           if (!orderId) return;
           if (confirm === 'retry') await retryOrder.mutateAsync(orderId);
           if (confirm === 'refund') await refundOrder.mutateAsync(orderId);
+          if (confirm === 'cancel') await cancelOrder.mutateAsync(orderId);
           setConfirm(null);
         }}
       />
