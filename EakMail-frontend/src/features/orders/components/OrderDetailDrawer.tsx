@@ -72,15 +72,23 @@ export function OrderDetailDrawer({ orderId, onClose }: OrderDetailDrawerProps) 
         <QueryBoundary isLoading={isLoading} isError={isError} onRetry={refetch}>
           {data && (
             <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[13px] text-text">{data.id}</span>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-mono text-[11px] text-text-muted" title={data.id}>
+                    {data.id.slice(0, 16)}…
+                  </p>
+                </div>
                 <StatusPill tone={orderStatusTone(data.status)} label={orderStatusLabel[data.status]} />
               </div>
 
               <dl className="grid grid-cols-2 gap-3 text-sm">
-                <Field label={featureStrings.orders.customer} value={data.customerId} mono />
-                <Field label={featureStrings.orders.product} value={data.productId} mono />
-                <Field label={featureStrings.orders.amount} value={formatRupiah(data.amount)} />
+                <Field
+                  label={featureStrings.orders.customer}
+                  value={data.customerName ?? data.customerId}
+                  mono={!data.customerName}
+                />
+                <Field label={featureStrings.orders.product} value={data.productName} />
+                <Field label={featureStrings.orders.amount} value={`${formatRupiah(data.amount)} × ${data.quantity}`} />
                 <Field label={featureStrings.orders.created} value={formatDateTime(data.createdAt)} />
               </dl>
 
