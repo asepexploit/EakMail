@@ -9,6 +9,7 @@
 import type { Prisma } from '@prisma/client';
 import {
   OrderStatus,
+  PaymentMethod,
   PaymentStatus,
   type CreateTransactionRequest,
   type PaymentDto,
@@ -166,7 +167,7 @@ export const paymentService = {
     const topupDtos: PaymentDto[] = topups.map((t) => ({
       id: `topup_${t.id}`,
       orderId: `topup_${t.id}`,
-      method: 'QRIS' as PaymentDto['method'],
+      method: PaymentMethod.QRIS,
       amount: t.amount,
       fee: null,
       status: t.status as PaymentDto['status'],
