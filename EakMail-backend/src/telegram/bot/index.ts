@@ -211,7 +211,10 @@ export async function buildBot(): Promise<StorefrontBot> {
         return;
       }
       // launch() resolves only after the bot stops; run it detached.
-      void bot.launch();
+      // Catch errors so a transient Telegram timeout doesn't crash the whole process.
+      bot.launch().catch((err) => {
+        log.error({ err }, 'storefront bot launch error — bot offline, server continues');
+      });
       log.info('storefront bot launched (long polling)');
     },
     async stop(reason?: string) {
