@@ -17,12 +17,14 @@ import { prisma } from '../../db/client.js';
 import { UnauthorizedError, ValidationError } from '../../lib/errors.js';
 import { writeAudit } from '../middleware/audit.js';
 import { toAdminUserDto } from '../../modules/auth/auth.service.js';
+import { getPakasirConfigStatus, savePakasirConfig } from '../../modules/payments/pakasir-config.js';
 import type { AdminUserDto } from '@eakmail/shared-types';
 
 export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   // ---- config status ---------------------------------------------------------
 
   app.get('/', { preHandler: requireAuth }, async () => {
+    const pakasir = await getPakasirConfigStatus();
     return {
       host: config.HOST,
       port: config.PORT,
@@ -33,7 +35,25 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
         pakasirWebhookSecretSet: Boolean(config.PAKASIR_WEBHOOK_SECRET),
         telegramConfigured: Boolean(config.TELEGRAM_API_ID && config.TELEGRAM_API_HASH),
       },
+      pakasir,
     };
+  });
+
+  // ---- Pakasir config update -------------------------------------------------
+
+  const pakasirSchema = z.object({
+    mode: z.enum(['production', 'testing']),
+    baseUrl: z.string().url().optional().or(z.literal('')),
+    slug: z.string().optional(),
+    apiKey: z.string().optional(),
+    webhookSecret: z.string().optional(),
+  });
+
+  app.put('/pakasir', { preHandler: requireAuth }, async (req) => {
+    const body = pakasirSchema.parse(req.body);
+    await savePakasirConfig(body);
+    void writeAudit({ adminUserId: req.admin?.id, action: 'settings.pakasir_config', meta: { mode: body.mode } });
+    return getPakasirConfigStatus();
   });
 
   // ---- TOTP setup (generate secret + provisioning URI) -----------------------

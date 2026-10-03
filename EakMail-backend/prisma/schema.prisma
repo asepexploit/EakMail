@@ -366,6 +366,17 @@ model AuditLog {
   ts          DateTime  @default(now())
 }
 
+// Singleton row (id = "default") — Pakasir gateway config overridable from the dashboard.
+// mode = "production" → use .env; mode = "testing" → use the encrypted fields below.
+model PakasirConfig {
+  id            String  @id @default("default")
+  mode          String  @default("production")
+  baseUrl       String?
+  slug          String?
+  apiKeyEnc     String?
+  webhookSecEnc String?
+}
+
 // ── Promotion System ──────────────────────────────────────────────────────────
 
 enum PromotionAccountStatus {

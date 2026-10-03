@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, type PakasirConfigUpdate } from '@/lib/api';
 import { queryKeys } from '@/lib/query-client';
 import { useToasts } from '@/features/shared/useToasts';
 
@@ -41,5 +41,18 @@ export function useDisableTotp() {
       void client.invalidateQueries({ queryKey: queryKeys.auth.me });
     },
     onError: () => toast.error('Kode TOTP tidak valid.'),
+  });
+}
+
+export function useUpdatePakasir() {
+  const client = useQueryClient();
+  const toast = useToasts();
+  return useMutation({
+    mutationFn: (body: PakasirConfigUpdate) => api.settings.updatePakasir(body),
+    onSuccess: () => {
+      toast.success('Konfigurasi Pakasir disimpan.');
+      void client.invalidateQueries({ queryKey: queryKeys.settings.current });
+    },
+    onError: () => toast.error('Gagal menyimpan konfigurasi Pakasir.'),
   });
 }

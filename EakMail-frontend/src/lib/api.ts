@@ -231,6 +231,8 @@ export const api = {
     setupTotp: () => http.post<{ otpauthUri: string; secret: string }>('/settings/totp/setup'),
     enableTotp: (code: string) => http.post<AdminUserDto>('/settings/totp/enable', { code }),
     disableTotp: (code: string) => http.delete<AdminUserDto>('/settings/totp', { body: { code } }),
+    updatePakasir: (body: PakasirConfigUpdate) =>
+      http.put<PakasirConfigStatus>('/settings/pakasir', body),
   },
 } as const;
 
@@ -271,6 +273,20 @@ export interface AuditPage {
 }
 
 /** Settings config status (GET /api/settings). */
+export interface PakasirConfigStatus {
+  mode: 'production' | 'testing';
+  baseUrl: string;
+  slug: string;
+  apiKeySet: boolean;
+  webhookSecretSet: boolean;
+}
+export interface PakasirConfigUpdate {
+  mode: 'production' | 'testing';
+  baseUrl?: string;
+  slug?: string;
+  apiKey?: string;
+  webhookSecret?: string;
+}
 export interface SettingsDto {
   host: string;
   port: number;
@@ -281,6 +297,7 @@ export interface SettingsDto {
     pakasirWebhookSecretSet: boolean;
     telegramConfigured: boolean;
   };
+  pakasir: PakasirConfigStatus;
 }
 
 export type Api = typeof api;

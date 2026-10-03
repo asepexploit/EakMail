@@ -5,18 +5,22 @@
  * ARCHITECTURE.md §8, §10; PRD.md FR-11.
  */
 import { timingSafeEqual } from 'node:crypto';
-import { config } from '../../config/index.js';
+import { resolvePakasirConfig } from './pakasir-config.js';
 
 /**
- * Returns true when the `X-Secret` header value matches PAKASIR_WEBHOOK_SECRET.
- * Constant-time comparison prevents timing-oracle attacks.
+ * Returns true when the `X-Secret` header matches the active webhook secret
+ * (resolved from DB override or .env). Async because config may come from DB.
  */
-export function verifyWebhookSignature(_rawBody: Buffer | string, secret: string | undefined): boolean {
-  if (!config.PAKASIR_WEBHOOK_SECRET || !secret) return false;
+export async function verifyWebhookSignature(
+  _rawBody: Buffer | string,
+  secret: string | undefined,
+): Promise<boolean> {
+  if (!secret) return false;
+  const cfg = await resolvePakasirConfig();
+  if (!cfg.webhookSecret) return false;
 
-  const expected = Buffer.from(config.PAKASIR_WEBHOOK_SECRET, 'utf8');
+  const expected = Buffer.from(cfg.webhookSecret, 'utf8');
   const provided = Buffer.from(secret, 'utf8');
-
   if (expected.length !== provided.length) return false;
   return timingSafeEqual(expected, provided);
 }

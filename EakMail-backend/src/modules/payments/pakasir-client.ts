@@ -8,10 +8,10 @@
  * The API key/slug are read from config and never logged or returned to callers.
  */
 import { request } from 'undici';
-import { config } from '../../config/index.js';
 import { logger } from '../../lib/logger.js';
 import { RateLimiter } from './rate-limiter.js';
 import { parseCreateTransaction } from './pakasir-parser.js';
+import { resolvePakasirConfig } from './pakasir-config.js';
 import type { CreateTransactionInput, PakasirClient, PakasirTransaction } from './pakasir-types.js';
 
 const log = logger.child({ module: 'pakasir-client' });
@@ -26,12 +26,13 @@ export class PakasirHttpClient implements PakasirClient {
   async createTransaction(input: CreateTransactionInput): Promise<PakasirTransaction> {
     await this.limiter.acquire();
 
-    const url = this.transactionUrl(input.orderId);
+    const cfg = await resolvePakasirConfig();
+    const url = this.transactionUrl(input.orderId, cfg.baseUrl, cfg.slug);
     const res = await request(url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': config.PAKASIR_API_KEY,
+        'x-api-key': cfg.apiKey,
       },
       body: JSON.stringify({ method: input.method, amount: input.amount }),
       headersTimeout: REQUEST_TIMEOUT_MS,
@@ -49,10 +50,9 @@ export class PakasirHttpClient implements PakasirClient {
     return parseCreateTransaction(parsed, input);
   }
 
-  private transactionUrl(orderId: string): string {
-    const base = config.PAKASIR_BASE_URL.replace(/\/+$/, '');
-    const slug = encodeURIComponent(config.PAKASIR_SLUG);
-    return `${base}/api/v2/create-transaction/${slug}/${encodeURIComponent(orderId)}`;
+  private transactionUrl(orderId: string, baseUrl: string, slug: string): string {
+    const base = baseUrl.replace(/\/+$/, '');
+    return `${base}/api/v2/create-transaction/${encodeURIComponent(slug)}/${encodeURIComponent(orderId)}`;
   }
 }
 

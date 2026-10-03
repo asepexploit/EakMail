@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge, Button, Card, Input, SecretField } from '@/components/ui';
 import { strings } from '@/lib/strings';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { QueryBoundary } from '@/features/shared/QueryBoundary';
 import { featureStrings } from '@/features/shared/feature-strings';
 import { useCurrentUser } from '@/features/auth/useAuth';
-import { useSettings, useSetupTotp, useEnableTotp, useDisableTotp } from '@/features/settings/api/useSettings';
+import { useSettings, useSetupTotp, useEnableTotp, useDisableTotp, useUpdatePakasir } from '@/features/settings/api/useSettings';
+import type { PakasirConfigUpdate } from '@/lib/api';
+import { cn } from '@/lib/cn';
 
 /**
  * Settings (Pengaturan) page (DESIGN_SYSTEM.md §Settings, TASKS Phase 7).
@@ -25,6 +27,24 @@ export function SettingsPage() {
   const setupTotp = useSetupTotp();
   const enableTotp = useEnableTotp();
   const disableTotp = useDisableTotp();
+  const updatePakasir = useUpdatePakasir();
+
+  // Pakasir config draft — synced from server on first load.
+  const [pakasirDraft, setPakasirDraft] = useState<PakasirConfigUpdate>({
+    mode: 'production',
+    baseUrl: '', slug: '', apiKey: '', webhookSecret: '',
+  });
+
+  useEffect(() => {
+    if (settings?.pakasir) {
+      setPakasirDraft((d) => ({
+        ...d,
+        mode: settings.pakasir.mode,
+        baseUrl: settings.pakasir.baseUrl,
+        slug: settings.pakasir.slug,
+      }));
+    }
+  }, [settings?.pakasir]);
 
   const settings = settingsQuery.data;
   const totpEnabled = userQuery.data?.totpEnabled ?? false;
@@ -203,15 +223,84 @@ export function SettingsPage() {
           </Card>
 
           <Card title={featureStrings.settings.sections.payment} className="lg:col-span-2">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <SecretField
-                label={featureStrings.settings.pakasirApiKey}
-                isSet={settings?.secrets.pakasirApiKeySet}
-              />
-              <SecretField
-                label={featureStrings.settings.pakasirWebhookSecret}
-                isSet={settings?.secrets.pakasirWebhookSecretSet}
-              />
+            <div className="space-y-5">
+              {/* Mode selector */}
+              <div>
+                <p className="mb-2 text-sm font-medium text-text">Mode Pakasir</p>
+                <div className="flex gap-2">
+                  {(['production', 'testing'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setPakasirDraft((d) => ({ ...d, mode: m }))}
+                      className={cn(
+                        'flex-1 rounded-md border py-2.5 text-sm font-medium transition',
+                        pakasirDraft.mode === m
+                          ? m === 'production'
+                            ? 'border-success bg-success/10 text-success'
+                            : 'border-brand-accent bg-brand-accent/10 text-brand-accent'
+                          : 'border-border text-text-muted hover:border-border/80',
+                      )}
+                    >
+                      {m === 'production' ? '✅ Produksi (.env)' : '🧪 Testing (custom)'}
+                    </button>
+                  ))}
+                </div>
+                {pakasirDraft.mode === 'production' && (
+                  <p className="mt-2 text-xs text-text-muted">
+                    Menggunakan nilai dari <span className="font-mono">.env</span>: PAKASIR_BASE_URL, PAKASIR_SLUG, PAKASIR_API_KEY, PAKASIR_WEBHOOK_SECRET.
+                    {' '}Status: API Key {settings?.secrets.pakasirApiKeySet ? '✓ diset' : '✗ kosong'}, Webhook {settings?.secrets.pakasirWebhookSecretSet ? '✓ diset' : '✗ kosong'}.
+                  </p>
+                )}
+              </div>
+
+              {/* Testing mode fields */}
+              {pakasirDraft.mode === 'testing' && (
+                <div className="rounded-md border border-brand-accent/30 bg-brand-accent/5 p-4 space-y-4">
+                  <p className="text-xs text-text-muted">
+                    Nilai di bawah akan digunakan menggantikan <span className="font-mono">.env</span>. Kosongkan untuk tetap memakai nilai .env sebagai fallback.
+                  </p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Input
+                      label="Base URL (misal: https://sandbox.pakasir.com)"
+                      value={pakasirDraft.baseUrl ?? ''}
+                      mono
+                      placeholder="https://app.pakasir.com"
+                      onChange={(e) => setPakasirDraft((d) => ({ ...d, baseUrl: e.target.value }))}
+                    />
+                    <Input
+                      label="Slug"
+                      value={pakasirDraft.slug ?? ''}
+                      mono
+                      placeholder="nama-toko-testing"
+                      onChange={(e) => setPakasirDraft((d) => ({ ...d, slug: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <SecretField
+                      label="API Key (Testing)"
+                      isSet={settings?.pakasir.apiKeySet && settings.pakasir.mode === 'testing'}
+                      value={pakasirDraft.apiKey ?? ''}
+                      onValueChange={(v) => setPakasirDraft((d) => ({ ...d, apiKey: v }))}
+                    />
+                    <SecretField
+                      label="Webhook Secret (Testing)"
+                      isSet={settings?.pakasir.webhookSecretSet && settings.pakasir.mode === 'testing'}
+                      value={pakasirDraft.webhookSecret ?? ''}
+                      onValueChange={(v) => setPakasirDraft((d) => ({ ...d, webhookSecret: v }))}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => updatePakasir.mutate(pakasirDraft)}
+                  isLoading={updatePakasir.isPending}
+                >
+                  {strings.actions.save} Konfigurasi Pakasir
+                </Button>
+              </div>
             </div>
           </Card>
         </div>

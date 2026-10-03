@@ -86,7 +86,7 @@ export const paymentService = {
    * to acknowledge. Throws ValidationError on a bad/missing signature (→ HTTP 400).
    */
   async verifyWebhook(rawBody: Buffer, signature: string | undefined): Promise<PakasirWebhookEvent> {
-    if (!verifyWebhookSignature(rawBody, signature)) {
+    if (!await verifyWebhookSignature(rawBody, signature)) {
       throw new ValidationError('Invalid webhook signature');
     }
 
