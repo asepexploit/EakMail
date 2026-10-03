@@ -1,19 +1,22 @@
 /**
  * Halaman Manajemen Stok — monitor stok lokal semua produk.
- * Per produk: stat cards, progress bar, tabel item (dengan payload), input tambah stok.
+ * Per produk: stat chips, progress bar, tabel item (dengan payload), input tambah stok.
+ * Template pesan pengiriman diakses via tombol → modal (tidak inline).
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   PackagePlus, Trash2, ChevronDown, ChevronUp,
-  RefreshCw, CheckCircle2, Clock, Package, FileText, Save,
+  RefreshCw, CheckCircle2, Clock, Package, FileText, Save, X,
 } from 'lucide-react';
 import { StockMode } from '@eakmail/shared-types';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Badge } from '@/components/ui/Badge';
+import { Dialog } from '@/components/ui/Dialog';
 import { useToasts } from '@/features/shared/useToasts';
+import { cn } from '@/lib/cn';
 
 // ---- delivery template presets -----------------------------------------------
 
@@ -41,7 +44,6 @@ function stockModeTone(mode: string): 'info' | 'warning' | 'success' {
   return mode === StockMode.STOCK_ONLY ? 'info' : 'warning';
 }
 
-/** True for modes that use local stock item management. */
 function hasLocalStock(mode: string): boolean {
   return (
     mode === StockMode.STOCK_ONLY ||
@@ -50,7 +52,6 @@ function hasLocalStock(mode: string): boolean {
   );
 }
 
-/** True for modes that have no local stock (API handles everything). */
 function isApiOnly(mode: string): boolean {
   return mode === StockMode.API_SUPPLIER;
 }
@@ -76,6 +77,117 @@ function StockBar({ available, total }: { available: number; total: number }) {
   );
 }
 
+// ---- TemplateModal ----------------------------------------------------------
+
+interface TemplateModalProps {
+  open: boolean;
+  onClose: () => void;
+  productId: string;
+  deliveryTemplate: string | null;
+}
+
+function TemplateModal({ open, onClose, productId, deliveryTemplate }: TemplateModalProps) {
+  const [draft, setDraft] = useState(deliveryTemplate ?? '');
+  const toast = useToasts();
+  const client = useQueryClient();
+
+  // Reset draft whenever the modal opens (picks up latest saved value)
+  useEffect(() => {
+    if (open) setDraft(deliveryTemplate ?? '');
+  }, [open, deliveryTemplate]);
+
+  const templateMutation = useMutation({
+    mutationFn: (template: string | null) =>
+      api.products.updateDeliveryTemplate(productId, template),
+    onSuccess: () => {
+      toast.success('Template pesan disimpan');
+      void client.invalidateQueries({ queryKey: ['products-all'] });
+      onClose();
+    },
+    onError: () => toast.error('Gagal menyimpan template'),
+  });
+
+  function handleSave() {
+    templateMutation.mutate(draft || null);
+  }
+
+  function handleClear() {
+    setDraft('');
+    templateMutation.mutate(null);
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Template Pesan Pengiriman"
+      description="Jika diisi, pesan ini menggantikan seluruh notifikasi pengiriman default."
+      size="md"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={templateMutation.isPending}>
+            Batal
+          </Button>
+          {draft && (
+            <Button
+              variant="ghost"
+              onClick={handleClear}
+              disabled={templateMutation.isPending}
+            >
+              <X className="h-3.5 w-3.5 mr-1.5" />
+              Hapus template
+            </Button>
+          )}
+          <Button onClick={handleSave} isLoading={templateMutation.isPending}>
+            <Save className="h-3.5 w-3.5 mr-1.5" />
+            Simpan
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <p className="text-xs text-text-muted">
+          Variabel:{' '}
+          <code className="bg-surface-2 px-1 rounded text-[11px]">{'{{payload}}'}</code>{' '}
+          <code className="bg-surface-2 px-1 rounded text-[11px]">{'{{orderId}}'}</code>{' '}
+          <code className="bg-surface-2 px-1 rounded text-[11px]">{'{{quantity}}'}</code>
+        </p>
+        {/* Preset picker */}
+        <div className="flex flex-wrap gap-1.5">
+          {DELIVERY_PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => setDraft(p.body)}
+              className={cn(
+                'rounded-md border px-2.5 py-1 text-[11px] font-medium transition',
+                draft === p.body
+                  ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
+                  : 'border-border text-text-muted hover:border-brand-accent/50 hover:text-text',
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+          {draft && !DELIVERY_PRESETS.some((p) => p.body === draft) && (
+            <span className="rounded-md border border-dashed border-brand-accent px-2.5 py-1 text-[11px] text-brand-accent">
+              ✏️ Custom
+            </span>
+          )}
+        </div>
+        <Textarea
+          label="Template pesan (kosongkan = pakai notifikasi default sistem)"
+          placeholder="Pilih preset di atas atau ketik template sendiri…"
+          value={draft}
+          rows={6}
+          mono
+          onChange={(e) => setDraft(e.target.value)}
+        />
+      </div>
+    </Dialog>
+  );
+}
+
 // ---- ProductStockPanel ------------------------------------------------------
 
 type StockItem = {
@@ -96,8 +208,8 @@ interface ProductStockPanelProps {
 function ProductStockPanel({ productId, productName, stockMode, deliveryTemplate }: ProductStockPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState('');
-  const [templateDraft, setTemplateDraft] = useState(deliveryTemplate ?? '');
   const [tab, setTab] = useState<'available' | 'sold'>('available');
+  const [templateOpen, setTemplateOpen] = useState(false);
   const isApiOnlyMode = isApiOnly(stockMode);
   const toast = useToasts();
   const client = useQueryClient();
@@ -126,16 +238,6 @@ function ProductStockPanel({ productId, productName, stockMode, deliveryTemplate
     onError: () => toast.error('Gagal hapus stok'),
   });
 
-  const templateMutation = useMutation({
-    mutationFn: (template: string | null) =>
-      api.products.updateDeliveryTemplate(productId, template),
-    onSuccess: () => {
-      toast.success('Template pesan disimpan');
-      void client.invalidateQueries({ queryKey: ['products-all'] });
-    },
-    onError: () => toast.error('Gagal menyimpan template'),
-  });
-
   const items: StockItem[] = stockQuery.data?.items ?? [];
   const available = stockQuery.data?.available ?? 0;
   const total = items.length;
@@ -152,264 +254,227 @@ function ProductStockPanel({ productId, productName, stockMode, deliveryTemplate
   }
 
   const stockColor = available === 0 ? 'text-danger' : available <= 3 ? 'text-warning' : 'text-success';
+  const hasTemplate = Boolean(deliveryTemplate);
 
   return (
-    <div className="rounded-lg border border-border bg-surface overflow-hidden shadow-sm">
-      {/* ---- Header ---- */}
-      <button
-        type="button"
-        className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-surface-2/50 transition-colors"
-        onClick={() => setExpanded((v) => !v)}
-      >
-        {/* icon */}
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand/10">
-          <Package className="h-4 w-4 text-brand" />
-        </div>
-
-        {/* name + mode */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-text truncate">{productName}</span>
-            <Badge tone={stockModeTone(stockMode)}>{stockModeLabel(stockMode)}</Badge>
+    <>
+      <div className="rounded-lg border border-border bg-surface overflow-hidden shadow-sm">
+        {/* ---- Header (always visible) ---- */}
+        <button
+          type="button"
+          className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-surface-2/50 transition-colors"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {/* icon */}
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand/10">
+            <Package className="h-4 w-4 text-brand" />
           </div>
-          {!isApiOnlyMode && (
-            <div className="mt-1.5 max-w-xs">
-              <StockBar available={available} total={total} />
-            </div>
-          )}
-          {isApiOnlyMode && (
-            <p className="mt-1 text-xs text-text-muted">Stok dikelola oleh supplier eksternal · edit template pesan di bawah</p>
-          )}
-        </div>
 
-        {/* stats — only for local stock modes */}
-        {!isApiOnlyMode ? (
-          <div className="flex items-center gap-6 shrink-0">
-            <div className="text-center">
-              <div className={`text-lg font-bold tabular-nums ${stockColor}`}>{available}</div>
-              <div className="text-[10px] text-text-muted uppercase tracking-wide">Tersedia</div>
+          {/* name + mode + bar */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-text truncate">{productName}</span>
+              <Badge tone={stockModeTone(stockMode)}>{stockModeLabel(stockMode)}</Badge>
             </div>
-            <div className="text-center">
-              <div className="text-lg font-bold tabular-nums text-text-muted">{sold}</div>
-              <div className="text-[10px] text-text-muted uppercase tracking-wide">Terjual</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg font-bold tabular-nums text-text">{total}</div>
-              <div className="text-[10px] text-text-muted uppercase tracking-wide">Total</div>
-            </div>
+            {!isApiOnlyMode && (
+              <div className="mt-1.5 max-w-xs">
+                <StockBar available={available} total={total} />
+              </div>
+            )}
+            {isApiOnlyMode && (
+              <p className="mt-1 text-xs text-text-muted">Stok dikelola oleh supplier eksternal</p>
+            )}
+          </div>
+
+          {/* right side: stats + template button + chevron */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Stock stats chips — local stock modes only */}
+            {!isApiOnlyMode && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className={cn('font-semibold tabular-nums', stockColor)}>
+                  Tersedia ({available})
+                </span>
+                <span className="text-text-muted">·</span>
+                <span className="text-text-muted tabular-nums">Terjual ({sold})</span>
+              </div>
+            )}
+
+            {/* Template button */}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setTemplateOpen(true); }}
+              title={hasTemplate ? 'Template aktif — klik untuk edit' : 'Atur template pesan pengiriman'}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition',
+                hasTemplate
+                  ? 'border-brand-accent/50 bg-brand-accent/10 text-brand-accent'
+                  : 'border-border text-text-muted hover:border-brand-accent/40 hover:text-text',
+              )}
+            >
+              <FileText className="h-3 w-3" />
+              Template
+              {hasTemplate && <span className="h-1.5 w-1.5 rounded-full bg-brand-accent" />}
+            </button>
+
+            {/* Chevron */}
             <div className="text-text-muted">
               {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </div>
           </div>
-        ) : (
-          <div className="text-text-muted shrink-0">
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </div>
-        )}
-      </button>
+        </button>
 
-      {/* ---- Expanded body ---- */}
-      {expanded && (
-        <div className="border-t border-border">
-          {/* Info banner — API-only: no local stock needed */}
-          {isApiOnlyMode && (
-            <div className="px-5 py-3">
-              <p className="rounded-md bg-info/10 px-3 py-2 text-xs text-info">
-                Stok dikelola otomatis oleh API supplier. Setiap order dikirim langsung ke API — tidak ada stok lokal yang perlu diisi.
-              </p>
-            </div>
-          )}
-          {stockMode === StockMode.STOCK_WITH_API_FALLBACK && (
-            <div className="px-5 pt-3">
-              <p className="rounded-md bg-success/10 px-3 py-2 text-xs text-success">
-                Mode hybrid: stok lokal digunakan duluan. Kalau habis, otomatis fallback ke API Supplier — tambah stok lokal di bawah.
-              </p>
-            </div>
-          )}
-          {/* Tabs + Item table — local stock only */}
-          {!isApiOnlyMode && (<>
-          <div className="flex border-b border-border px-5">
-            <button
-              type="button"
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
-                tab === 'available'
-                  ? 'border-brand text-brand'
-                  : 'border-transparent text-text-muted hover:text-text'
-              }`}
-              onClick={() => setTab('available')}
-            >
-              Tersedia ({availableItems.length})
-            </button>
-            <button
-              type="button"
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
-                tab === 'sold'
-                  ? 'border-brand text-brand'
-                  : 'border-transparent text-text-muted hover:text-text'
-              }`}
-              onClick={() => setTab('sold')}
-            >
-              Terjual ({soldItems.length})
-            </button>
-          </div>
-
-          <div className="px-5 py-3">
-            {stockQuery.isPending ? (
-              <div className="text-sm text-text-muted py-4 text-center">Memuat...</div>
-            ) : displayItems.length === 0 ? (
-              <div className="text-sm text-text-muted py-6 text-center">
-                {tab === 'available' ? 'Tidak ada stok tersedia.' : 'Belum ada yang terjual.'}
+        {/* ---- Expanded body ---- */}
+        {expanded && (
+          <div className="border-t border-border">
+            {/* Info banners */}
+            {isApiOnlyMode && (
+              <div className="px-5 py-3">
+                <p className="rounded-md bg-info/10 px-3 py-2 text-xs text-info">
+                  Stok dikelola otomatis oleh API supplier. Setiap order dikirim langsung ke API — tidak ada stok lokal yang perlu diisi.
+                </p>
               </div>
-            ) : (
-              <div className="overflow-x-auto rounded-md border border-border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-2">
-                      <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">#</th>
-                      <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Payload</th>
-                      <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Ditambah</th>
-                      {tab === 'sold' && (
-                        <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Terjual</th>
-                      )}
-                      <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {displayItems.map((item, idx) => (
-                      <tr key={item.id} className="hover:bg-surface-2/40 transition-colors">
-                        <td className="px-3 py-2 text-text-muted tabular-nums">{idx + 1}</td>
-                        <td className="px-3 py-2 font-mono text-xs text-text max-w-md">
-                          <span className="break-all">{item.payload}</span>
-                        </td>
-                        <td className="px-3 py-2 text-text-muted text-xs whitespace-nowrap">{fmtDate(item.createdAt)}</td>
-                        {tab === 'sold' && (
-                          <td className="px-3 py-2 text-text-muted text-xs whitespace-nowrap">
-                            {item.usedAt ? fmtDate(item.usedAt) : '-'}
-                          </td>
-                        )}
-                        <td className="px-3 py-2">
-                          {item.usedAt ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-danger font-medium">
-                              <CheckCircle2 className="h-3 w-3" /> Terjual
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-success font-medium">
-                              <Clock className="h-3 w-3" /> Tersedia
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            )}
+            {stockMode === StockMode.STOCK_WITH_API_FALLBACK && (
+              <div className="px-5 pt-3">
+                <p className="rounded-md bg-success/10 px-3 py-2 text-xs text-success">
+                  Mode hybrid: stok lokal digunakan duluan. Kalau habis, otomatis fallback ke API Supplier.
+                </p>
+              </div>
+            )}
+
+            {/* Tabs + Item table — local stock only */}
+            {!isApiOnlyMode && (
+              <>
+                <div className="flex border-b border-border px-5">
+                  <button
+                    type="button"
+                    className={cn(
+                      'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+                      tab === 'available'
+                        ? 'border-brand text-brand'
+                        : 'border-transparent text-text-muted hover:text-text',
+                    )}
+                    onClick={() => setTab('available')}
+                  >
+                    Tersedia ({availableItems.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+                      tab === 'sold'
+                        ? 'border-brand text-brand'
+                        : 'border-transparent text-text-muted hover:text-text',
+                    )}
+                    onClick={() => setTab('sold')}
+                  >
+                    Terjual ({soldItems.length})
+                  </button>
+                </div>
+
+                <div className="px-5 py-3">
+                  {stockQuery.isPending ? (
+                    <div className="text-sm text-text-muted py-4 text-center">Memuat...</div>
+                  ) : displayItems.length === 0 ? (
+                    <div className="text-sm text-text-muted py-6 text-center">
+                      {tab === 'available' ? 'Tidak ada stok tersedia.' : 'Belum ada yang terjual.'}
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-md border border-border">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border bg-surface-2">
+                            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">#</th>
+                            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Payload</th>
+                            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Ditambah</th>
+                            {tab === 'sold' && (
+                              <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Terjual</th>
+                            )}
+                            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {displayItems.map((item, idx) => (
+                            <tr key={item.id} className="hover:bg-surface-2/40 transition-colors">
+                              <td className="px-3 py-2 text-text-muted tabular-nums">{idx + 1}</td>
+                              <td className="px-3 py-2 font-mono text-xs text-text max-w-md">
+                                <span className="break-all">{item.payload}</span>
+                              </td>
+                              <td className="px-3 py-2 text-text-muted text-xs whitespace-nowrap">{fmtDate(item.createdAt)}</td>
+                              {tab === 'sold' && (
+                                <td className="px-3 py-2 text-text-muted text-xs whitespace-nowrap">
+                                  {item.usedAt ? fmtDate(item.usedAt) : '-'}
+                                </td>
+                              )}
+                              <td className="px-3 py-2">
+                                {item.usedAt ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] text-danger font-medium">
+                                    <CheckCircle2 className="h-3 w-3" /> Terjual
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[11px] text-success font-medium">
+                                    <Clock className="h-3 w-3" /> Tersedia
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Add stock — local stock only */}
+            {hasLocalStock(stockMode) && (
+              <div className="px-5 pb-4 space-y-3 border-t border-border pt-3">
+                <p className="text-xs font-medium text-text-muted uppercase tracking-wide">Tambah stok baru</p>
+                <Textarea
+                  label="Paste item (1 baris = 1 item)"
+                  placeholder={`email@gmail.com|password|backup|\nemail2@gmail.com|password2|backup2|`}
+                  value={draft}
+                  rows={4}
+                  mono
+                  onChange={(e) => setDraft(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleAdd}
+                    disabled={!draft.trim()}
+                    isLoading={addMutation.isPending}
+                  >
+                    <PackagePlus className="h-3.5 w-3.5 mr-1.5" />
+                    Tambah ke stok
+                  </Button>
+                  {available > 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => clearMutation.mutate()}
+                      isLoading={clearMutation.isPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                      Hapus stok tersisa
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
           </div>
-          </>)}
+        )}
+      </div>
 
-          {/* Delivery template — shown for all modes */}
-          <div className="px-5 py-4 space-y-3 border-t border-border">
-            <div className="flex items-center gap-2">
-              <FileText className="h-3.5 w-3.5 text-text-muted" />
-              <p className="text-xs font-medium text-text-muted uppercase tracking-wide">Template pesan pengiriman</p>
-            </div>
-            <p className="text-xs text-text-muted">
-              Jika diisi, pesan ini <strong>menggantikan seluruh notifikasi pengiriman</strong>.
-              Variabel: <code className="bg-surface-2 px-1 rounded text-[11px]">{'{{payload}}'}</code>{' '}
-              <code className="bg-surface-2 px-1 rounded text-[11px]">{'{{orderId}}'}</code>{' '}
-              <code className="bg-surface-2 px-1 rounded text-[11px]">{'{{quantity}}'}</code>
-            </p>
-            {/* Preset picker */}
-            <div className="flex flex-wrap gap-1.5">
-              {DELIVERY_PRESETS.map((p) => (
-                <button
-                  key={p.label}
-                  type="button"
-                  onClick={() => setTemplateDraft(p.body)}
-                  className={[
-                    'rounded-md border px-2.5 py-1 text-[11px] font-medium transition',
-                    templateDraft === p.body
-                      ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
-                      : 'border-border text-text-muted hover:border-brand-accent/50 hover:text-text',
-                  ].join(' ')}
-                >
-                  {p.label}
-                </button>
-              ))}
-              {templateDraft && !DELIVERY_PRESETS.some((p) => p.body === templateDraft) && (
-                <span className="rounded-md border border-dashed border-brand-accent px-2.5 py-1 text-[11px] text-brand-accent">
-                  ✏️ Custom
-                </span>
-              )}
-            </div>
-            <Textarea
-              label="Template pesan (kosongkan = pakai notifikasi default sistem)"
-              placeholder="Pilih preset di atas atau ketik template sendiri…"
-              value={templateDraft}
-              rows={5}
-              mono
-              onChange={(e) => setTemplateDraft(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => templateMutation.mutate(templateDraft || null)}
-                isLoading={templateMutation.isPending}
-              >
-                <Save className="h-3.5 w-3.5 mr-1.5" />
-                Simpan template
-              </Button>
-              {templateDraft && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => { setTemplateDraft(''); templateMutation.mutate(null); }}
-                >
-                  Hapus template
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Add stock — local stock only */}
-          {hasLocalStock(stockMode) && (
-          <div className="px-5 pb-4 space-y-3 border-t border-border pt-3">
-            <p className="text-xs font-medium text-text-muted uppercase tracking-wide">Tambah stok baru</p>
-            <Textarea
-              label="Paste item (1 baris = 1 item)"
-              placeholder={`email@gmail.com|password|backup|\nemail2@gmail.com|password2|backup2|`}
-              value={draft}
-              rows={4}
-              mono
-              onChange={(e) => setDraft(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={handleAdd}
-                disabled={!draft.trim()}
-                isLoading={addMutation.isPending}
-              >
-                <PackagePlus className="h-3.5 w-3.5 mr-1.5" />
-                Tambah ke stok
-              </Button>
-              {available > 0 && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => clearMutation.mutate()}
-                  isLoading={clearMutation.isPending}
-                >
-                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                  Hapus stok tersisa
-                </Button>
-              )}
-            </div>
-          </div>
-          )}
-        </div>
-      )}
-    </div>
+      {/* Template modal — rendered outside the card so click propagation is clean */}
+      <TemplateModal
+        open={templateOpen}
+        onClose={() => setTemplateOpen(false)}
+        productId={productId}
+        deliveryTemplate={deliveryTemplate}
+      />
+    </>
   );
 }
 
@@ -439,7 +504,7 @@ export function StockPage() {
         <div>
           <h1 className="text-xl font-semibold text-text">Manajemen Stok</h1>
           <p className="text-sm text-text-muted mt-0.5">
-            Kelola stok lokal & template pesan pengiriman — {stockProducts.length} produk
+            Kelola stok lokal semua produk — {stockProducts.length} produk
           </p>
         </div>
         <Button
