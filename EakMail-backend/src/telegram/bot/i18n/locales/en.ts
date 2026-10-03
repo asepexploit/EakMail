@@ -77,7 +77,7 @@ const en: Catalog = {
 
   // Fulfillment notice
   [MessageKey.FULFILLING_NOTICE]:
-    '⚙️ *Order Being Processed*\n\nPayment confirmed! We\'re preparing your product... 🔄\n\n📦 Product: *{{productName}}*\n🆔 ID: `{{orderId}}`\n\n_Please wait a moment. You\'ll receive a notification when your product is ready!_ 📬',
+    '🔄 Processing — *{{productName}}*\n🆔 `{{orderId}}`',
 
   // Delivery wrapper
   [MessageKey.DELIVERY_WRAPPER]:

@@ -77,7 +77,7 @@ const id: Catalog = {
 
   // Fulfillment notice
   [MessageKey.FULFILLING_NOTICE]:
-    '⚙️ *Pesanan Sedang Diproses*\n\nPembayaran dikonfirmasi! Kami sedang menyiapkan produkmu... 🔄\n\n📦 Produk: *{{productName}}*\n🆔 ID: `{{orderId}}`\n\n_Mohon tunggu sebentar. Notifikasi akan dikirim saat produk siap!_ 📬',
+    '🔄 Sedang diproses — *{{productName}}*\n🆔 `{{orderId}}`',
 
   // Delivery wrapper — wraps the raw payload before sending to the customer
   [MessageKey.DELIVERY_WRAPPER]:
