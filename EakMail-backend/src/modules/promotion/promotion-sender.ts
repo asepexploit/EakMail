@@ -93,7 +93,7 @@ let bundle: GramjsBundle | null = null;
 async function loadGramjs(): Promise<GramjsBundle> {
   if (bundle) return bundle;
   const tg = await import('telegram');
-  const sessions = await import('telegram/sessions');
+  const sessions = await import('telegram/sessions/index.js');
   bundle = {
     Api: (tg as GramjsAny).Api,
     TelegramClient: (tg as GramjsAny).TelegramClient,
