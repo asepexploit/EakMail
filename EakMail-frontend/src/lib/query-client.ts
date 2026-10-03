@@ -42,6 +42,7 @@ export const queryKeys = {
     all: ['payments'] as const,
     list: (params?: unknown) => ['payments', 'list', params] as const,
     byOrder: (orderId: string) => ['payments', 'order', orderId] as const,
+    stats: ['payments', 'stats'] as const,
   },
   executions: {
     all: ['executions'] as const,

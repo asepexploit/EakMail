@@ -15,6 +15,7 @@ import { PaymentMethod } from '@eakmail/shared-types';
 import { AppError, ValidationError } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import { paymentService } from '../../modules/payments/index.js';
+import { prisma } from '../../db/client.js';
 
 const log = logger.child({ module: 'payments-routes' });
 
@@ -81,6 +82,20 @@ export async function paymentsRoutes(app: FastifyInstance): Promise<void> {
     const event = await paymentService.verifyWebhook(raw, signature);
     log.info({ orderId: event.orderId, status: event.status }, 'Webhook processed');
     return reply.code(200).send({ received: true });
+  });
+
+  // Topup aggregate stats for the Overview dashboard.
+  // Must be declared before /:orderId so "stats" is not treated as an orderId.
+  app.get('/stats', async () => {
+    const agg = await prisma.topupRequest.aggregate({
+      where: { status: 'PAID' },
+      _sum: { amount: true },
+      _count: true,
+    });
+    return {
+      totalTopupPaid: agg._sum.amount ?? 0,
+      totalTopupCount: agg._count,
+    };
   });
 
   app.get('/:orderId', async (req, reply) => {

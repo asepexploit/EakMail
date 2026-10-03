@@ -10,6 +10,7 @@ import { useOrders } from '@/features/orders/api/useOrders';
 import { useExecutions } from '@/features/monitoring/api/useExecutions';
 import { useAccounts } from '@/features/accounts/api/useAccounts';
 import { useCustomerStats } from '@/features/customers/api/useCustomers';
+import { usePaymentStats } from '@/features/payments/api/usePayments';
 
 /**
  * Overview data bag — aggregated KPIs from existing resource queries.
@@ -35,6 +36,8 @@ export interface OverviewData {
   healthyAccounts: number;
   totalAccounts: number;
   totalCustomers: number;
+  totalTopupPaid: number;
+  totalTopupCount: number;
   // Lists
   recentOrders: OrderDto[];
   liveExecutions: ExecutionDto[];
@@ -69,6 +72,7 @@ export function useOverview() {
   const executionsQuery = useExecutions({ state: ExecutionState.RUNNING, pageSize: 50 });
   const accountsQuery = useAccounts();
   const customerStatsQuery = useCustomerStats();
+  const paymentStatsQuery = usePaymentStats();
 
   const isLoading =
     ordersQuery.isLoading || executionsQuery.isLoading || accountsQuery.isLoading;
@@ -155,6 +159,8 @@ export function useOverview() {
       healthyAccounts: accounts.filter((a) => a.status === AccountStatus.CONNECTED).length,
       totalAccounts: accounts.length,
       totalCustomers: customerStatsQuery.data?.totalCustomers ?? 0,
+      totalTopupPaid: paymentStatsQuery.data?.totalTopupPaid ?? 0,
+      totalTopupCount: paymentStatsQuery.data?.totalTopupCount ?? 0,
       recentOrders: orders.slice(0, 10),
       liveExecutions: executions.slice(0, 8),
       recentFailures: orders.filter((o) => o.status === OrderStatus.FAILED).slice(0, 8),
@@ -162,7 +168,7 @@ export function useOverview() {
       ordersOverTime,
       statusDistribution,
     };
-  }, [ordersQuery.data, executionsQuery.data, accountsQuery.data, customerStatsQuery.data]);
+  }, [ordersQuery.data, executionsQuery.data, accountsQuery.data, customerStatsQuery.data, paymentStatsQuery.data]);
 
   return {
     data,
@@ -173,6 +179,7 @@ export function useOverview() {
       void executionsQuery.refetch();
       void accountsQuery.refetch();
       void customerStatsQuery.refetch();
+      void paymentStatsQuery.refetch();
     },
   };
 }

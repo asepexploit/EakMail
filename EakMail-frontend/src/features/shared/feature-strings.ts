@@ -16,6 +16,7 @@ export const featureStrings = {
     totalOrders: 'Total Pesanan',
     pendingOrders: 'Menunggu Bayar',
     totalCustomers: 'Total Pelanggan',
+    totalTopup: 'Total Topup (Lunas)',
     activeExecutions: 'Eksekusi Aktif',
     healthyAccounts: 'Akun Sehat',
     queueDepth: 'Antrian',

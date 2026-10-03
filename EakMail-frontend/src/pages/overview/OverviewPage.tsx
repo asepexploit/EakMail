@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
-  CheckCircle2, Clock, ListOrdered, Package,
+  ArrowDownToLine, CheckCircle2, Clock, ListOrdered, Package,
   RefreshCw, ServerCog, TrendingUp, Users, Wallet, XCircle,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
@@ -95,6 +95,12 @@ export function OverviewPage() {
                 delta={data.totalAccounts > 0
                   ? (data.healthyAccounts / data.totalAccounts) * 100 - 100
                   : undefined}
+              />
+              <StatCard
+                label={featureStrings.overview.totalTopup}
+                value={formatRupiah(data.totalTopupPaid)}
+                icon={<ArrowDownToLine className="h-4 w-4" />}
+                deltaLabel={data.totalTopupCount > 0 ? `${formatNumber(data.totalTopupCount)} transaksi` : undefined}
               />
             </div>
 

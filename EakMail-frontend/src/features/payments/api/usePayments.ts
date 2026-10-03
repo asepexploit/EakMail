@@ -9,6 +9,13 @@ export function usePayments(query?: ListQuery) {
   });
 }
 
+export function usePaymentStats() {
+  return useQuery({
+    queryKey: queryKeys.payments.stats,
+    queryFn: ({ signal }) => api.payments.stats(signal),
+  });
+}
+
 export function usePaymentByOrder(orderId: string | null) {
   return useQuery({
     queryKey: orderId ? queryKeys.payments.byOrder(orderId) : queryKeys.payments.byOrder('none'),

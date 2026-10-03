@@ -184,6 +184,8 @@ export const api = {
       http.get<PaymentDto>(`/payments/${orderId}`, { signal }),
     createTransaction: (body: CreateTransactionRequest) =>
       http.post<PaymentDto>('/payments', body),
+    stats: (signal?: AbortSignal) =>
+      http.get<{ totalTopupPaid: number; totalTopupCount: number }>('/payments/stats', { signal }),
   },
 
   executions: {
