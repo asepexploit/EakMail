@@ -132,7 +132,7 @@ export const api = {
       http.patch<ProductDto>(`/products/${id}/active`, { active }),
     remove: (id: string) => http.delete<void>(`/products/${id}`),
     listStock: (id: string, signal?: AbortSignal) =>
-      http.get<{ items: { id: string; payload: string; usedAt: string | null; orderId: string | null; createdAt: string }[]; available: number; total: number }>(`/products/${id}/stock`, { signal }),
+      http.get<{ items: import('@eakmail/shared-types').StockItemDto[]; available: number; total: number }>(`/products/${id}/stock`, { signal }),
     addStock: (id: string, items: string[]) =>
       http.post<{ added: number }>(`/products/${id}/stock`, { items }),
     clearStock: (id: string) =>

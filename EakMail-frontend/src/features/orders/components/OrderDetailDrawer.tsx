@@ -99,6 +99,17 @@ export function OrderDetailDrawer({ orderId, onClose }: OrderDetailDrawerProps) 
                 <OrderTimeline status={data.status} />
               </section>
 
+              {data.deliveryPayload && (
+                <section>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                    Konten Terkirim
+                  </h3>
+                  <pre className="whitespace-pre-wrap break-all rounded-md border border-border bg-surface-2 p-3 font-mono text-[12px] text-text leading-relaxed max-h-48 overflow-y-auto">
+                    {data.deliveryPayload}
+                  </pre>
+                </section>
+              )}
+
               <section>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
                   {featureStrings.orders.linkedExecution}

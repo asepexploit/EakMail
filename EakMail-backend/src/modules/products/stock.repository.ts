@@ -47,19 +47,45 @@ export const stockRepository = {
     });
   },
 
-  /** List all items for a product (for admin view), with decrypted payload. */
+  /** List all items for a product (for admin view), with decrypted payload + buyer info. */
   async listItems(productId: string) {
     const rows = await prisma.stockItem.findMany({
       where: { productId },
       orderBy: { createdAt: 'asc' },
       select: { id: true, productId: true, payload: true, usedAt: true, orderId: true, createdAt: true },
     });
+
+    // Batch-fetch customer info for sold items (StockItem has no Prisma relation to Order).
+    const soldOrderIds = rows.map((r) => r.orderId).filter((id): id is string => id !== null);
+    const orders =
+      soldOrderIds.length > 0
+        ? await prisma.order.findMany({
+            where: { id: { in: soldOrderIds } },
+            select: {
+              id: true,
+              customer: { select: { firstName: true, lastName: true, username: true } },
+            },
+          })
+        : [];
+    const customerByOrderId = new Map(
+      orders.map((o) => {
+        const c = o.customer;
+        const name = c.firstName
+          ? [c.firstName, c.lastName].filter(Boolean).join(' ')
+          : c.username
+            ? `@${c.username}`
+            : null;
+        return [o.id, name] as const;
+      }),
+    );
+
     return rows.map((r) => ({
       id: r.id,
       productId: r.productId,
       payload: decrypt(r.payload),
       usedAt: r.usedAt,
       orderId: r.orderId,
+      customerName: r.orderId ? (customerByOrderId.get(r.orderId) ?? null) : null,
       createdAt: r.createdAt,
     }));
   },

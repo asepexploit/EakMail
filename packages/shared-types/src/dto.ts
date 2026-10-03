@@ -185,6 +185,9 @@ export interface StockItemDto {
   productId: string;
   payload: string;
   usedAt: string | null;
+  orderId: string | null;
+  /** Customer name who received this item (null if available). */
+  customerName: string | null;
   createdAt: string;
 }
 export interface AddStockRequest {
@@ -290,6 +293,8 @@ export interface OrderDto {
 export interface OrderDetailDto extends OrderDto {
   payment: PaymentDto | null;
   deliveredAt: string | null;
+  /** Decrypted content that was delivered to the customer (null if not yet delivered). */
+  deliveryPayload: string | null;
 }
 
 // ---- Payments (Pakasir; ARCHITECTURE.md §8) ---------------------------------
