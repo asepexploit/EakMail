@@ -294,7 +294,7 @@ export async function handleQtyMessage(ctx: Context): Promise<boolean> {
   const text = ctx.message && 'text' in ctx.message ? ctx.message.text.trim() : '';
   const quantity = parseInt(text.replace(/[.,_\s]/g, ''), 10);
 
-  if (!Number.isFinite(quantity) || quantity <= 0) {
+  if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 99) {
     await ctx.reply(bot.tr(MessageKey.CATALOG_QTY_INVALID));
     return true;
   }
