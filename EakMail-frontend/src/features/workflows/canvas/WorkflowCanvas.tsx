@@ -96,8 +96,8 @@ function CanvasInner({
 
   // Reseed React Flow when the incoming graph is a structurally different set of nodes/edges
   // (workflow loaded, rolled back, node added/deleted from the page). Compares structural ids,
-  // so ordinary drag/config edits — which flow OUT below — don't loop back in. This is
-  // idempotent, so React StrictMode's double-invoke is harmless.
+  // so ordinary drag edits — which flow OUT below — don't loop back in. This is idempotent,
+  // so React StrictMode's double-invoke is harmless.
   const lastGraphSig = useRef(graphSignature(graph));
   useEffect(() => {
     const incoming = graphSignature(graph);
@@ -105,6 +105,16 @@ function CanvasInner({
       lastGraphSig.current = incoming;
       setNodes(toFlowNodes(graph));
       setEdges(toFlowEdges(graph));
+    } else {
+      // Structure unchanged but config may have been edited via the config panel.
+      // Patch each node's data.node in-place so the canvas body re-renders.
+      setNodes((current) =>
+        current.map((flowNode) => {
+          const updated = graph.nodes.find((n) => n.id === flowNode.id);
+          if (!updated) return flowNode;
+          return { ...flowNode, data: { ...flowNode.data, node: updated } };
+        }),
+      );
     }
   }, [graph, setNodes, setEdges]);
 
