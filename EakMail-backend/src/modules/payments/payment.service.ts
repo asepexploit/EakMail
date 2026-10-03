@@ -156,10 +156,31 @@ export const paymentService = {
     return toPaymentDto(payment);
   },
 
-  /** All payments (dashboard Payments page). Secrets never surface (mapper omits raw). */
+  /** All payments (dashboard Payments page). Merges order payments + topup requests. */
   async listPayments(): Promise<PaymentDto[]> {
-    const rows = await paymentRepository.list();
-    return rows.map(toPaymentDto);
+    const [orderPayments, topups] = await Promise.all([
+      paymentRepository.list(),
+      prisma.topupRequest.findMany({ orderBy: { createdAt: 'desc' }, take: 500 }),
+    ]);
+
+    const topupDtos: PaymentDto[] = topups.map((t) => ({
+      id: `topup_${t.id}`,
+      orderId: `topup_${t.id}`,
+      method: 'QRIS' as PaymentDto['method'],
+      amount: t.amount,
+      fee: null,
+      status: t.status as PaymentDto['status'],
+      pakasirTxnId: t.pakasirTxnId,
+      qrString: null,
+      vaNumber: null,
+      paymentUrl: null,
+      expiresAt: t.expiresAt ? t.expiresAt.toISOString() : null,
+      createdAt: t.createdAt.toISOString(),
+    }));
+
+    return [...orderPayments.map(toPaymentDto), ...topupDtos].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
   },
 };
 

@@ -147,7 +147,6 @@ export function PaymentsPage() {
             <span>
               Total:{' '}
               <span className="font-semibold text-text">
-                Rp{' '}
                 {formatRupiah(
                   rows
                     .filter((r) => r.status === PaymentStatus.PAID)
