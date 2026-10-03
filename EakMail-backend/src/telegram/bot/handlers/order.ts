@@ -179,14 +179,19 @@ export async function handlePayBalance(ctx: Context): Promise<void> {
     return;
   }
 
+  const insufficientText = bot.tr(MessageKey.ORDER_BALANCE_INSUFFICIENT, {
+    balance: formatRupiah(bot.customer.balance),
+    amount: formatRupiah(order.amount),
+  });
+  const isPaymentConfigured = Boolean(config.PAKASIR_API_KEY);
+
   if (bot.customer.balance < order.amount) {
     await ctx.answerCbQuery();
-    await ctx.editMessageText(
-      bot.tr(MessageKey.ORDER_BALANCE_INSUFFICIENT, {
-        balance: formatRupiah(bot.customer.balance),
-        amount: formatRupiah(order.amount),
-      }),
-    );
+    if (isPaymentConfigured) {
+      await ctx.editMessageText(insufficientText, paymentMethodKeyboard(order.id, 0, true, bot.tr, false));
+    } else {
+      await ctx.editMessageText(insufficientText);
+    }
     return;
   }
 
@@ -194,12 +199,11 @@ export async function handlePayBalance(ctx: Context): Promise<void> {
   const sufficient = await balanceService.deductForPurchase(bot.customer.id, order.amount, orderId);
   if (!sufficient) {
     await ctx.answerCbQuery();
-    await ctx.editMessageText(
-      bot.tr(MessageKey.ORDER_BALANCE_INSUFFICIENT, {
-        balance: formatRupiah(bot.customer.balance),
-        amount: formatRupiah(order.amount),
-      }),
-    );
+    if (isPaymentConfigured) {
+      await ctx.editMessageText(insufficientText, paymentMethodKeyboard(order.id, 0, true, bot.tr, false));
+    } else {
+      await ctx.editMessageText(insufficientText);
+    }
     return;
   }
 

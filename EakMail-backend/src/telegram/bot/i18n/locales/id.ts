@@ -44,7 +44,7 @@ const id: Catalog = {
   [MessageKey.ORDER_PAY_BALANCE_BTN]: '💰 Bayar dengan Saldo (Rp{{balance}})',
   [MessageKey.ORDER_PAY_QRIS_BTN]: '📱 Bayar via QRIS / VA',
   [MessageKey.ORDER_BALANCE_INSUFFICIENT]:
-    '❌ Saldo tidak cukup.\n\nSaldo kamu: Rp{{balance}}\nDibutuhkan: Rp{{amount}}\n\nSilakan minta admin untuk menambah saldo.',
+    '❌ Saldo tidak cukup.\n\nSaldo kamu: Rp{{balance}}\nDibutuhkan: Rp{{amount}}\n\nGunakan tombol di bawah untuk topup via QRIS/VA, atau hubungi admin.',
   [MessageKey.ORDER_BALANCE_PAID]:
     '✅ Pembayaran dengan saldo berhasil!\n\nProduk: {{productName}}\nTotal: Rp{{amount}}\nSisa saldo: Rp{{newBalance}}',
 

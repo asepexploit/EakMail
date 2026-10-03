@@ -83,22 +83,25 @@ export function languageKeyboard(tr: Translator): Markup.Markup<InlineKeyboardMa
 
 /**
  * Payment method keyboard — uses success style for QRIS (Bot API 9.4).
+ * Pass `showBalance: false` to hide the balance button (e.g. when balance is insufficient).
  */
 export function paymentMethodKeyboard(
   orderId: string,
   balance: number,
   isPaymentConfigured: boolean,
   tr: Translator,
+  showBalance = true,
 ): Markup.Markup<InlineKeyboardMarkup> {
-  const rows: InlineKeyboardButton[][] = [
-    [
+  const rows: InlineKeyboardButton[][] = [];
+  if (showBalance) {
+    rows.push([
       styledCallback(
         tr(MessageKey.ORDER_PAY_BALANCE_BTN, { balance: balance.toLocaleString('id-ID') }),
         `${PAY_ACTION_PREFIX}:balance:${orderId}`,
         'primary',
       ),
-    ],
-  ];
+    ]);
+  }
   if (isPaymentConfigured) {
     rows.push([
       styledCallback(

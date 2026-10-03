@@ -44,7 +44,7 @@ const en: Catalog = {
   [MessageKey.ORDER_PAY_BALANCE_BTN]: '💰 Pay with Balance (Rp{{balance}})',
   [MessageKey.ORDER_PAY_QRIS_BTN]: '📱 Pay via QRIS / VA',
   [MessageKey.ORDER_BALANCE_INSUFFICIENT]:
-    '❌ Insufficient balance.\n\nYour balance: Rp{{balance}}\nRequired: Rp{{amount}}\n\nPlease ask the admin to top up your balance.',
+    '❌ Insufficient balance.\n\nYour balance: Rp{{balance}}\nRequired: Rp{{amount}}\n\nUse the button below to top up via QRIS/VA, or contact admin.',
   [MessageKey.ORDER_BALANCE_PAID]:
     '✅ Balance payment successful!\n\nProduct: {{productName}}\nTotal: Rp{{amount}}\nRemaining balance: Rp{{newBalance}}',
 
