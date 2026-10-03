@@ -154,7 +154,7 @@ export function useOverview() {
       activeExecutions: executionsQuery.data.total,
       healthyAccounts: accounts.filter((a) => a.status === AccountStatus.CONNECTED).length,
       totalAccounts: accounts.length,
-      totalCustomers: customerStatsQuery.data?.total ?? 0,
+      totalCustomers: customerStatsQuery.data?.totalCustomers ?? 0,
       recentOrders: orders.slice(0, 10),
       liveExecutions: executions.slice(0, 8),
       recentFailures: orders.filter((o) => o.status === OrderStatus.FAILED).slice(0, 8),

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
-  Activity, CheckCircle2, Clock, ListOrdered, Package,
+  CheckCircle2, Clock, ListOrdered, Package,
   RefreshCw, ServerCog, TrendingUp, Users, Wallet, XCircle,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
