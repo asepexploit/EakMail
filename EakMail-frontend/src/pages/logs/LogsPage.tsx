@@ -164,7 +164,7 @@ function LiveLogPanel() {
                         label={executionStateLabel[exec.state]}
                         pulse={exec.state === ExecutionState.RUNNING}
                       />
-                      <span className="text-[10px] text-text-muted">{formatDateTime(exec.createdAt)}</span>
+                      <span className="text-[10px] text-text-muted">{exec.startedAt ? formatDateTime(exec.startedAt) : '—'}</span>
                     </div>
                   </button>
                 </li>
