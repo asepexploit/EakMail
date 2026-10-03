@@ -39,6 +39,7 @@ interface ProductFormState {
   stock: number;
   active: boolean;
   externalProductId: string | null;
+  deliveryTemplate: string | null;
   options: OptionRow[];
 }
 
@@ -56,6 +57,7 @@ function toForm(product: ProductDto | null): ProductFormState {
       stock: 0,
       active: true,
       externalProductId: null,
+      deliveryTemplate: null,
       options: [],
     };
   }
@@ -71,6 +73,7 @@ function toForm(product: ProductDto | null): ProductFormState {
     stock: product.stock,
     active: product.active,
     externalProductId: product.externalProductId,
+    deliveryTemplate: product.deliveryTemplate,
     options: product.options.map((o) => ({ key: o.key, value: o.value, price: o.price })),
   };
 }
@@ -134,6 +137,7 @@ export function ProductDrawer({ open, onClose, product, onSubmit, isSubmitting }
                 supplierId: form.supplierId || null,
                 workflowId: form.workflowId || null,
                 externalProductId: form.externalProductId || null,
+                deliveryTemplate: form.deliveryTemplate || null,
               })
             }
             isLoading={isSubmitting}
@@ -203,6 +207,22 @@ export function ProductDrawer({ open, onClose, product, onSubmit, isSubmitting }
           value={form.description ?? ''}
           onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
         />
+        <div className="space-y-1">
+          <Textarea
+            label="Template Pesan Pengiriman (opsional)"
+            value={form.deliveryTemplate ?? ''}
+            rows={5}
+            mono
+            placeholder={'🎉 Pesananmu sudah dikirim!\n\n📦 {{payload}}\n\n🆔 `{{orderId}}`'}
+            onChange={(e) => setForm((prev) => ({ ...prev, deliveryTemplate: e.target.value || null }))}
+          />
+          <p className="text-[11px] text-text-muted">
+            Jika diisi, pesan ini <strong>menggantikan seluruh notifikasi pengiriman</strong> ke pelanggan.
+            Variabel: <code className="rounded bg-surface-2 px-1">{'{{payload}}'}</code>{' '}
+            <code className="rounded bg-surface-2 px-1">{'{{orderId}}'}</code>{' '}
+            <code className="rounded bg-surface-2 px-1">{'{{quantity}}'}</code>
+          </p>
+        </div>
         <Input
           label={featureStrings.products.imageUrl}
           value={form.imageUrl ?? ''}

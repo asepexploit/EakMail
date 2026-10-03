@@ -208,17 +208,20 @@ async function fulfillFromStock(
   // Apply per-product delivery template if set; otherwise join payloads with newlines.
   const product = await productRepository.findById(productId);
   let text: string;
+  let skipWrapper = false;
   if (product?.deliveryTemplate) {
     text = renderTemplate(product.deliveryTemplate, {
       payload: payloads.join('\n'),
       payloads,
       quantity: payloads.length,
+      orderId,
     });
+    skipWrapper = true;
   } else {
     text = payloads.join('\n');
   }
 
-  await deliver(orderId, customerTelegramId, text);
+  await deliver(orderId, customerTelegramId, text, skipWrapper);
 }
 
 /**
@@ -269,10 +272,11 @@ async function fulfillFromApiSupplier(
           payload: result.payload,
           payloads: result.payload.split('\n'),
           quantity: context.quantity,
+          orderId,
         })
       : result.payload;
 
-    await deliver(orderId, context.customer.telegramId, text);
+    await deliver(orderId, context.customer.telegramId, text, !!template);
   } catch (err) {
     const reason = err instanceof Error ? err.message : 'API supplier order failed';
     log.warn({ orderId, supplierId, err }, 'API supplier fulfillment failed');
@@ -368,20 +372,24 @@ async function deliver(
   orderId: string,
   customerTelegramId: string,
   payload: unknown,
+  skipWrapper = false,
 ): Promise<void> {
   const rawText = renderDeliveryText(payload);
 
-  // Wrap with the delivery template in the customer's language.
+  // If a product delivery template was used, it already contains the full message.
+  // Otherwise wrap with the system DELIVERY_WRAPPER (header + footer + orderId).
   let text = rawText;
-  try {
-    const customer = await prisma.customer.findUnique({
-      where: { telegramId: customerTelegramId },
-      select: { language: true },
-    });
-    const lang = (customer?.language as Language) ?? 'id';
-    text = t(MessageKey.DELIVERY_WRAPPER, lang, { orderId, payload: rawText });
-  } catch {
-    // Non-fatal: send raw text if language fetch fails.
+  if (!skipWrapper) {
+    try {
+      const customer = await prisma.customer.findUnique({
+        where: { telegramId: customerTelegramId },
+        select: { language: true },
+      });
+      const lang = (customer?.language as Language) ?? 'id';
+      text = t(MessageKey.DELIVERY_WRAPPER, lang, { orderId, payload: rawText });
+    } catch {
+      // Non-fatal: send raw text if language fetch fails.
+    }
   }
 
   const outcome = await orderRepository.createDelivery(orderId, encrypt(text));
