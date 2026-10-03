@@ -1,0 +1,221 @@
+import { useState } from 'react';
+import { Badge, Button, Card, Input, SecretField } from '@/components/ui';
+import { strings } from '@/lib/strings';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { QueryBoundary } from '@/features/shared/QueryBoundary';
+import { featureStrings } from '@/features/shared/feature-strings';
+import { useCurrentUser } from '@/features/auth/useAuth';
+import { useSettings, useSetupTotp, useEnableTotp, useDisableTotp } from '@/features/settings/api/useSettings';
+
+/**
+ * Settings (Pengaturan) page (DESIGN_SYSTEM.md §Settings, TASKS Phase 7).
+ * Bind address/port and secret flags come from GET /api/settings — no hardcoded values.
+ * Secrets are write-only per ARCHITECTURE.md §10 (the server never returns secret values).
+ */
+export function SettingsPage() {
+  const userQuery = useCurrentUser();
+  const settingsQuery = useSettings();
+
+  // TOTP flow state
+  const [totpPhase, setTotpPhase] = useState<'idle' | 'setup' | 'confirm' | 'disable'>('idle');
+  const [totpCode, setTotpCode] = useState('');
+  const [otpauthUri, setOtpauthUri] = useState('');
+  const [qrSecret, setQrSecret] = useState('');
+
+  const setupTotp = useSetupTotp();
+  const enableTotp = useEnableTotp();
+  const disableTotp = useDisableTotp();
+
+  const settings = settingsQuery.data;
+  const totpEnabled = userQuery.data?.totpEnabled ?? false;
+
+  async function handleStartSetup() {
+    const result = await setupTotp.mutateAsync();
+    setOtpauthUri(result.otpauthUri);
+    setQrSecret(result.secret);
+    setTotpCode('');
+    setTotpPhase('setup');
+  }
+
+  async function handleConfirmEnable() {
+    await enableTotp.mutateAsync(totpCode);
+    setTotpPhase('idle');
+    setTotpCode('');
+  }
+
+  async function handleConfirmDisable() {
+    await disableTotp.mutateAsync(totpCode);
+    setTotpPhase('idle');
+    setTotpCode('');
+  }
+
+  return (
+    <div className="space-y-5">
+      <PageHeader title={strings.nav.settings} description={featureStrings.settings.subtitle} />
+
+      <QueryBoundary
+        isLoading={settingsQuery.isLoading}
+        isError={settingsQuery.isError}
+        onRetry={settingsQuery.refetch}
+      >
+        <div className="grid gap-5 lg:grid-cols-2">
+          <Card title={featureStrings.settings.sections.general}>
+            <div className="space-y-4">
+              <Input
+                label={featureStrings.settings.bindAddress}
+                value={settings?.host ?? '…'}
+                readOnly
+                mono
+                helperText={featureStrings.settings.readOnlyHint}
+              />
+              <Input
+                label={featureStrings.settings.port}
+                value={settings ? String(settings.port) : '…'}
+                readOnly
+                mono
+              />
+            </div>
+          </Card>
+
+          <Card title={featureStrings.settings.sections.security}>
+            <div className="space-y-4">
+              {/* TOTP status + actions */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-text">{featureStrings.settings.totp}</span>
+                {totpEnabled ? (
+                  <Badge tone="success">{featureStrings.settings.totpEnabled}</Badge>
+                ) : (
+                  <Badge tone="neutral">{featureStrings.settings.totpDisabled}</Badge>
+                )}
+              </div>
+
+              {totpPhase === 'idle' && (
+                <div className="flex gap-2">
+                  {!totpEnabled ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      isLoading={setupTotp.isPending}
+                      onClick={handleStartSetup}
+                    >
+                      Aktifkan 2FA
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => {
+                        setTotpCode('');
+                        setTotpPhase('disable');
+                      }}
+                    >
+                      Nonaktifkan 2FA
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {totpPhase === 'setup' && (
+                <div className="space-y-3 rounded-lg border border-border p-3">
+                  <p className="text-sm font-medium text-text">Scan QR ini dengan aplikasi authenticator</p>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(otpauthUri)}`}
+                    alt="TOTP QR code"
+                    className="rounded border border-border"
+                    width={180}
+                    height={180}
+                  />
+                  <p className="font-mono text-xs text-text-muted break-all">
+                    Kunci manual: {qrSecret}
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    Setelah scan, masukkan kode 6-digit dari aplikasi untuk mengonfirmasi.
+                  </p>
+                  <Input
+                    label="Kode konfirmasi"
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value)}
+                    placeholder="123456"
+                    mono
+                    maxLength={6}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      isLoading={enableTotp.isPending}
+                      disabled={totpCode.length !== 6}
+                      onClick={handleConfirmEnable}
+                    >
+                      Konfirmasi & Aktifkan
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setTotpPhase('idle')}
+                    >
+                      {strings.actions.cancel}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {totpPhase === 'disable' && (
+                <div className="space-y-3 rounded-lg border border-border p-3">
+                  <p className="text-sm text-text">
+                    Masukkan kode TOTP dari aplikasi untuk menonaktifkan 2FA.
+                  </p>
+                  <Input
+                    label="Kode TOTP"
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value)}
+                    placeholder="123456"
+                    mono
+                    maxLength={6}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      isLoading={disableTotp.isPending}
+                      disabled={totpCode.length !== 6}
+                      onClick={handleConfirmDisable}
+                    >
+                      Nonaktifkan 2FA
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setTotpPhase('idle')}
+                    >
+                      {strings.actions.cancel}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <SecretField
+                label={featureStrings.settings.sessionSecret}
+                isSet={settings?.secrets.sessionSecretSet}
+                helperText={featureStrings.settings.readOnlyHint}
+                disabled
+              />
+            </div>
+          </Card>
+
+          <Card title={featureStrings.settings.sections.payment} className="lg:col-span-2">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SecretField
+                label={featureStrings.settings.pakasirApiKey}
+                isSet={settings?.secrets.pakasirApiKeySet}
+              />
+              <SecretField
+                label={featureStrings.settings.pakasirWebhookSecret}
+                isSet={settings?.secrets.pakasirWebhookSecretSet}
+              />
+            </div>
+          </Card>
+        </div>
+      </QueryBoundary>
+    </div>
+  );
+}

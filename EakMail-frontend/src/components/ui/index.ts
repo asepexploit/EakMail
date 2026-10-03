@@ -1,0 +1,20 @@
+/** Public barrel for the design-system UI kit (DESIGN_SYSTEM.md §5). */
+export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from './Button';
+export { Input, type InputProps } from './Input';
+export { Textarea, type TextareaProps } from './Textarea';
+export { Select, type SelectProps, type SelectOption } from './Select';
+export { SecretField, type SecretFieldProps } from './SecretField';
+export { Card, type CardProps } from './Card';
+export { StatCard, type StatCardProps } from './StatCard';
+export { DataTable, type DataTableProps, type Column } from './DataTable';
+export { Badge, type BadgeProps } from './Badge';
+export { StatusPill, type StatusPillProps } from './StatusPill';
+export { Dialog, type DialogProps } from './Dialog';
+export { ConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog';
+export { Drawer, type DrawerProps } from './Drawer';
+export { Tabs, type TabsProps, type TabItem } from './Tabs';
+export { ToastProvider } from './Toast';
+export { useToast } from './useToast';
+export type { ToastOptions, ToastEntry } from './toast-context';
+export { JsonViewer, type JsonViewerProps } from './JsonViewer';
+export { LiveLog, type LiveLogProps, type LogLine } from './LiveLog';

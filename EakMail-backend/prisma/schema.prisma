@@ -1,0 +1,552 @@
+// EakMail database schema — source: ARCHITECTURE.md §11, TASKS.md Phase 1.
+// State enums mirror @eakmail/shared-types (kept in sync manually per naming-conventions.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FULFILLING
+  DELIVERED
+  FAILED
+  REFUND_PENDING
+  REFUNDED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  EXPIRED
+  FAILED
+  REFUNDED
+}
+
+enum ExecutionState {
+  PENDING
+  RUNNING
+  PAUSED
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+  CANCELLED
+}
+
+enum StepStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+  SKIPPED
+}
+
+enum AccountStatus {
+  CONNECTED
+  FLOOD_WAIT
+  BANNED
+  LOGGED_OUT
+  DISCONNECTED
+}
+
+enum ExecutionMode {
+  PRODUCTION
+  TEST
+}
+
+enum Language {
+  id
+  en
+}
+
+model AdminUser {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  totpSecret   String?
+  role         String     @default("admin")
+  createdAt    DateTime   @default(now())
+  auditLogs    AuditLog[]
+}
+
+model TelegramAccount {
+  id             String            @id @default(cuid())
+  label          String
+  sessionEnc     String? // encrypted MTProto session string (write-only, never returned)
+  phone          String
+  status         AccountStatus     @default(LOGGED_OUT)
+  lastActivityAt DateTime?
+  createdAt      DateTime          @default(now())
+  suppliers      SupplierAccount[]
+  executions     Execution[]
+}
+
+model Supplier {
+  id                String            @id @default(cuid())
+  name              String
+  supplierType      String            @default("bot") // 'bot' | 'api'
+  // BOT type fields
+  botUsername       String            @default("")
+  defaultWorkflowId String?
+  defaultWorkflow   Workflow?         @relation("SupplierDefaultWorkflow", fields: [defaultWorkflowId], references: [id])
+  // API type fields
+  apiBaseUrl        String?           // e.g. https://store.abellab.biz.id/api/v1
+  apiKeyEnc         String?           // encrypted API key (write-only)
+  apiAuthHeader     String?           // header name, default X-API-Key
+  // Stats
+  successRate       Float?
+  avgFulfillMs      Int?
+  lastError         String?
+  createdAt         DateTime          @default(now())
+  accounts          SupplierAccount[]
+  products          Product[]
+  workflows         Workflow[]        @relation("SupplierWorkflows")
+}
+
+model SupplierAccount {
+  supplierId String
+  accountId  String
+  supplier   Supplier        @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  account    TelegramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@id([supplierId, accountId])
+}
+
+model Workflow {
+  id              String            @id @default(cuid())
+  name            String
+  supplierId      String?
+  supplier        Supplier?         @relation("SupplierWorkflows", fields: [supplierId], references: [id])
+  graph           Json // WorkflowGraph (see @eakmail/shared-types)
+  variables       Json?
+  version         Int               @default(1)
+  isActive        Boolean           @default(false)
+  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime          @default(now())
+  versionsHistory WorkflowVersion[]
+  products        Product[]
+  executions      Execution[]
+  defaultForSuppliers Supplier[]    @relation("SupplierDefaultWorkflow")
+}
+
+model WorkflowVersion {
+  id         String   @id @default(cuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  graph      Json
+  version    Int
+  createdAt  DateTime @default(now())
+
+  @@index([workflowId])
+}
+
+model Product {
+  id         String          @id @default(cuid())
+  name       String
+  price      Int // Rupiah
+  sku        String?
+  description String?
+  imageUrl   String?
+  supplierId String?
+  supplier   Supplier?       @relation(fields: [supplierId], references: [id])
+  workflowId String?
+  workflow   Workflow?       @relation(fields: [workflowId], references: [id])
+  stockMode           String          @default("manual")
+  stock               Int             @default(0)
+  deliveryTemplate    String?
+  externalProductId   String?         // id produk di supplier API eksternal
+  active              Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+  options    ProductOption[]
+  orders     Order[]
+  stockItems StockItem[]
+}
+
+model StockItem {
+  id        String    @id @default(cuid())
+  productId String
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  payload   String    // encrypted delivery payload (one item = one line of stock)
+  usedAt    DateTime? // null = available, set = consumed
+  orderId   String?   // which order consumed this item
+  createdAt DateTime  @default(now())
+
+  @@index([productId, usedAt])
+}
+
+model ProductOption {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  key       String
+  value     String
+  price     Int     @default(0)
+}
+
+model BotConfig {
+  id             String   @id @default(cuid())
+  botTokenEnc    String? // encrypted storefront bot token (write-only)
+  brandName      String   @default("EakMail")
+  logoUrl        String?
+  startPhotoUrl  String? // shown as photo above welcome message on /start
+  menu           Json     @default("[]")
+  texts          Json     @default("{}") // { id: {key:val}, en: {key:val} }
+  updatedAt      DateTime @updatedAt
+}
+
+model Customer {
+  id                  String               @id @default(cuid())
+  telegramId          String               @unique
+  username            String?
+  firstName           String?
+  lastName            String?
+  balance             Int                  @default(0)
+  language            Language             @default(id)
+  isBlocked           Boolean              @default(false)
+  lastSeenAt          DateTime?
+  createdAt           DateTime             @default(now())
+  orders              Order[]
+  balanceTransactions BalanceTransaction[]
+  topupRequests       TopupRequest[]
+}
+
+model BalanceTransaction {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  amount     Int      // positive = credit, negative = debit (Rupiah)
+  type       String   // 'topup_admin' | 'purchase' | 'refund_balance'
+  orderId    String?  // linked order (for purchase / refund_balance)
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([customerId, createdAt])
+}
+
+enum BroadcastStatus {
+  DRAFT
+  SENDING
+  COMPLETED
+  FAILED
+}
+
+model Broadcast {
+  id           String          @id @default(cuid())
+  message      String
+  imageUrl     String?
+  status       BroadcastStatus @default(DRAFT)
+  totalTargets Int             @default(0)
+  sentCount    Int             @default(0)
+  failedCount  Int             @default(0)
+  createdBy    String? // admin_user id
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime        @default(now())
+
+  @@index([status])
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  customerId     String
+  customer       Customer    @relation(fields: [customerId], references: [id])
+  productId      String
+  product        Product     @relation(fields: [productId], references: [id])
+  quantity       Int         @default(1)
+  amount         Int
+  status         OrderStatus @default(PENDING)
+  idempotencyKey String      @unique
+  optionKey      String?     // selected product option key (e.g. "seller")
+  optionValue    String?     // selected product option value (e.g. "Netflix Premium")
+  createdAt      DateTime    @default(now())
+  payment        Payment?
+  executions     Execution[]
+  delivery       Delivery?
+
+  @@index([status])
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  orderId      String        @unique
+  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider     String        @default("pakasir")
+  pakasirTxnId String?
+  method       String
+  amount       Int
+  fee          Int?
+  status       PaymentStatus @default(PENDING)
+  qrString     String?
+  vaNumber     String?
+  paymentUrl   String?
+  expiresAt    DateTime?
+  raw          Json?
+  createdAt    DateTime      @default(now())
+
+  @@index([pakasirTxnId])
+}
+
+// Tracks a customer-initiated balance top-up via Pakasir.
+// When the payment is confirmed (webhook), the amount is credited to the customer's balance.
+model TopupRequest {
+  id           String   @id @default(cuid())
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  amount       Int      // amount in Rupiah the customer should pay
+  status       String   @default("PENDING") // PENDING | PAID | EXPIRED
+  pakasirTxnId String?
+  qrString     String?
+  expiresAt    DateTime?
+  createdAt    DateTime @default(now())
+  settledAt    DateTime?
+
+  @@index([customerId, createdAt])
+  @@index([pakasirTxnId])
+}
+
+model Execution {
+  id         String          @id @default(cuid())
+  workflowId String
+  workflow   Workflow        @relation(fields: [workflowId], references: [id])
+  orderId    String?
+  order      Order?          @relation(fields: [orderId], references: [id])
+  accountId  String?
+  account    TelegramAccount? @relation(fields: [accountId], references: [id])
+  mode       ExecutionMode   @default(PRODUCTION)
+  state      ExecutionState  @default(PENDING)
+  variables  Json            @default("{}")
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime        @default(now())
+  steps      ExecutionStep[]
+
+  @@index([orderId])
+  @@index([state])
+}
+
+model ExecutionStep {
+  id          String     @id @default(cuid())
+  executionId String
+  execution   Execution  @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  nodeId      String
+  nodeType    String
+  status      StepStatus @default(PENDING)
+  input       Json?
+  output      Json?
+  error       String?
+  outPort     String?
+  ts          DateTime   @default(now())
+
+  @@index([executionId])
+}
+
+model Delivery {
+  id          String   @id @default(cuid())
+  orderId     String   @unique
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payloadEnc  String // encrypted delivered payload
+  deliveredAt DateTime @default(now())
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  adminUserId String?
+  adminUser   AdminUser? @relation(fields: [adminUserId], references: [id])
+  action      String
+  target      String?
+  meta        Json?
+  ts          DateTime  @default(now())
+}
+
+// ── Promotion System ──────────────────────────────────────────────────────────
+
+enum PromotionAccountStatus {
+  CONNECTED
+  DISCONNECTED
+  FLOOD_WAIT
+  BANNED
+}
+
+enum CampaignStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum CampaignSendMode {
+  ROUND_ROBIN
+  ALL_ACCOUNTS
+  RANDOM
+}
+
+enum PromotionLogStatus {
+  SENT
+  FAILED
+  FLOOD_WAIT
+  SKIPPED
+}
+
+model PromotionAccount {
+  id              String                  @id @default(cuid())
+  label           String
+  phone           String
+  sessionEnc      String?                 // encrypted MTProto session (write-only)
+  status          PromotionAccountStatus  @default(DISCONNECTED)
+  floodUntil      DateTime?               // when flood-wait lifts
+  lastUsedAt      DateTime?
+  createdAt       DateTime                @default(now())
+  // Auto-join monitor settings
+  autoJoinEnabled    Boolean              @default(false)
+  autoJoinMaxPerHour Int                  @default(5)
+  messageLogEnabled  Boolean              @default(false) // log all messages from monitored groups
+  campaignAccounts CampaignAccount[]
+  promotionLogs   PromotionLog[]
+  autoJoinLogs    AutoJoinLog[]
+  autoJoinQueue   AutoJoinQueue[]
+  monitoredGroups MonitoredGroup[]
+  monitorMessages MonitorMessage[]
+
+  @@index([status])
+  @@index([autoJoinEnabled])
+}
+
+enum MonitoredGroupStatus {
+  ACTIVE      // joined, can send
+  READ_ONLY   // joined but cannot send (channel/broadcast)
+  LEFT        // left by system or manually
+  BANNED      // banned/kicked from group
+}
+
+model MonitoredGroup {
+  id            String               @id @default(cuid())
+  accountId     String
+  account       PromotionAccount     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  chatId        String               // numeric chat id (e.g. -1001234567890)
+  username      String?              // @username if public
+  title         String
+  type          String               // group | supergroup | channel
+  memberCount   Int?
+  canSendMessages Boolean            @default(true)
+  status        MonitoredGroupStatus @default(ACTIVE)
+  messageCount  Int                  @default(0) // total messages logged from this group
+  joinedAt      DateTime             @default(now())
+  leftAt        DateTime?
+  sourceLink    String?              // link that triggered the join (null = manually added)
+
+  @@unique([accountId, chatId])
+  @@index([accountId, status])
+  @@index([status])
+}
+
+model AutoJoinLog {
+  id          String           @id @default(cuid())
+  accountId   String
+  account     PromotionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  sourceGroup String           // grup tempat link ditemukan
+  targetGroup String           // grup/channel yang di-join
+  rawLink     String           // original link dari pesan
+  ok          Boolean
+  alreadyMember Boolean        @default(false)
+  error       String?
+  joinedAt    DateTime         @default(now())
+
+  @@index([accountId, joinedAt])
+  @@index([targetGroup])
+}
+
+// Live message log — stores up to MAX_MESSAGES_PER_ACCOUNT (100) recent messages
+// from monitored groups. Old rows are pruned automatically on insert.
+model MonitorMessage {
+  id          String           @id @default(cuid())
+  accountId   String
+  account     PromotionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  chatId      String           // source group chat id
+  chatTitle   String           // group/channel display name
+  senderId    String?          // telegram user id (null for channel posts)
+  senderName  String?          // display name / username
+  text        String           // message text (truncated to 1000 chars)
+  hasLink     Boolean          @default(false) // contains a t.me link
+  ts          DateTime         @default(now())
+
+  @@index([accountId, ts])
+  @@index([chatId])
+}
+
+// Persistent queue for auto-join links — links are enqueued immediately when found,
+// then processed one-by-one respecting the per-account hourly rate limit.
+enum AutoJoinQueueStatus {
+  PENDING    // waiting to be processed
+  PROCESSING // currently being processed (lock)
+  DONE       // finished (ok or not)
+  SKIPPED    // duplicate / account disabled after enqueue
+}
+
+model AutoJoinQueue {
+  id          String               @id @default(cuid())
+  accountId   String
+  account     PromotionAccount     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  rawLink     String
+  sourceGroup String
+  status      AutoJoinQueueStatus  @default(PENDING)
+  enqueuedAt  DateTime             @default(now())
+  processedAt DateTime?
+  logId       String?              // FK to AutoJoinLog once processed
+
+  @@unique([accountId, rawLink, enqueuedAt]) // rough dedup; exact 24h dedup in processNext
+  @@index([accountId, status, enqueuedAt])
+  @@index([status])
+}
+
+model PromotionCampaign {
+  id               String            @id @default(cuid())
+  name             String
+  message          String            // Markdown text
+  imageUrl         String?           // optional photo sent with message
+  targetGroups     Json              // String[] of @username or chat_id
+  intervalMinutes  Int               @default(60)
+  activeHoursStart Int               @default(0)  // 0-23
+  activeHoursEnd   Int               @default(23) // 0-23
+  activeDays       Json              @default("[0,1,2,3,4,5,6]") // 0=Sun…6=Sat
+  delayBetweenGroupsSeconds Int      @default(10)
+  sendMode         CampaignSendMode  @default(ROUND_ROBIN)
+  roundRobinIndex  Int               @default(0)  // pointer for round-robin
+  status           CampaignStatus    @default(PAUSED)
+  nextRunAt        DateTime?         // when the scheduler will fire next
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  accounts         CampaignAccount[]
+  logs             PromotionLog[]
+
+  @@index([status])
+}
+
+model CampaignAccount {
+  campaignId String
+  accountId  String
+  campaign   PromotionCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  account    PromotionAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, accountId])
+}
+
+model PromotionLog {
+  id          String             @id @default(cuid())
+  campaignId  String
+  campaign    PromotionCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  accountId   String?
+  account     PromotionAccount?  @relation(fields: [accountId], references: [id])
+  targetGroup String
+  status      PromotionLogStatus @default(SENT)
+  errorMessage String?
+  sentAt      DateTime           @default(now())
+
+  @@index([campaignId, sentAt])
+  @@index([accountId])
+}

@@ -1,0 +1,4 @@
+packages:
+  - 'packages/*'
+  - 'EakMail-backend'
+  - 'EakMail-frontend'

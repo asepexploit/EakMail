@@ -1,0 +1,16 @@
+{
+  "name": "eakmail",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev:backend": "pnpm --filter @eakmail/backend dev",
+    "dev:frontend": "pnpm --filter @eakmail/frontend dev",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "prisma:generate": "pnpm --filter @eakmail/backend prisma:generate",
+    "prisma:migrate": "pnpm --filter @eakmail/backend prisma:migrate",
+    "seed": "pnpm --filter @eakmail/backend seed"
+  }
+}

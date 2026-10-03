@@ -1,0 +1,74 @@
+# EakMail — single-host self-hosted stack (ARCHITECTURE.md §12, TASKS.md Phase 9).
+# Local-first: the API/dashboard bind to 127.0.0.1 on the host by default.
+# Bring up infra only:   docker compose up -d postgres redis
+# Bring up everything:   docker compose up -d --build
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eakmail}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eakmail}
+      POSTGRES_DB: ${POSTGRES_DB:-eakmail}
+    ports:
+      # Host 5432 is often taken by a local Postgres; expose on 5433 to avoid clashes.
+      # DATABASE_URL in EakMail-backend/.env must match this host port.
+      # Bind to all interfaces so the Windows host Node.js process can reach the container.
+      # Docker Desktop WSL2 on Windows drops connections to 127.0.0.1-bound ports from the host.
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-eakmail}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      # Same reasoning as postgres: bind all interfaces for WSL2/Docker Desktop compatibility.
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: EakMail-backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - EakMail-backend/.env
+    environment:
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://${POSTGRES_USER:-eakmail}:${POSTGRES_PASSWORD:-eakmail}@postgres:5432/${POSTGRES_DB:-eakmail}?schema=public
+      REDIS_URL: redis://redis:6379
+    # Exposed only on loopback of the host (local-first). Put behind a reverse proxy to go public.
+    ports:
+      - '127.0.0.1:${PORT:-8787}:8787'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: EakMail-frontend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${DASHBOARD_PORT:-5173}:80'
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  redisdata:
