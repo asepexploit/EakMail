@@ -41,6 +41,8 @@ export interface NotificationJob {
   editMessageId?: number;
   /** When set, the worker will also replace the edited message's photo with this URL. */
   editSuccessImageUrl?: string | null;
+  /** When true, the worker will delete the message instead of editing its keyboard. */
+  editDeleteMsg?: boolean;
 }
 
 export interface PromotionJob {

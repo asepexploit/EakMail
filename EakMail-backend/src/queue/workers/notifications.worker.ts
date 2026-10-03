@@ -30,13 +30,15 @@ export function buildNotificationsWorker(deps: WorkerBuildDeps = {}): Worker<Not
 }
 
 async function processNotification(job: Job<NotificationJob>): Promise<void> {
-  const { customerTelegramId, text, editChatId, editMessageId, editSuccessImageUrl } = job.data;
+  const { customerTelegramId, text, editChatId, editMessageId, editSuccessImageUrl, editDeleteMsg } = job.data;
   const sender = getStorefrontSender();
   await sender.sendText(customerTelegramId, text);
 
-  // If the job carries a message location, remove its keyboard (and optionally swap the photo).
+  // If the job carries a message location, edit/delete it after notifying.
   if (editChatId && editMessageId) {
-    if (editSuccessImageUrl) {
+    if (editDeleteMsg) {
+      await sender.deleteMessage(editChatId, editMessageId);
+    } else if (editSuccessImageUrl) {
       await sender.replacePhoto(editChatId, editMessageId, editSuccessImageUrl);
     } else {
       await sender.removeKeyboard(editChatId, editMessageId);

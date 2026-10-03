@@ -23,6 +23,8 @@ export interface StorefrontSender {
   removeKeyboard(chatId: string, messageId: number): Promise<void>;
   /** Replace a photo message's image (best-effort; swallows errors). */
   replacePhoto(chatId: string, messageId: number, photoUrl: string): Promise<void>;
+  /** Delete a message entirely (best-effort; swallows errors). */
+  deleteMessage(chatId: string, messageId: number): Promise<void>;
   readonly isMock: boolean;
 }
 
@@ -37,6 +39,9 @@ class MockStorefrontSender implements StorefrontSender {
   }
   async replacePhoto(chatId: string, messageId: number, photoUrl: string): Promise<void> {
     log.info({ chatId, messageId, photoUrl }, 'mock replace photo');
+  }
+  async deleteMessage(chatId: string, messageId: number): Promise<void> {
+    log.info({ chatId, messageId }, 'mock delete message');
   }
 }
 
@@ -104,6 +109,15 @@ class TelegramBotSender implements StorefrontSender {
         media: { type: 'photo', media: photoUrl },
       }),
     }).catch((err) => log.warn({ chatId, messageId, photoUrl, err }, 'replacePhoto failed — non-fatal'));
+  }
+
+  async deleteMessage(chatId: string, messageId: number): Promise<void> {
+    const token = await this.resolveToken();
+    await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
+    }).catch((err) => log.warn({ chatId, messageId, err }, 'deleteMessage failed — non-fatal'));
   }
 }
 

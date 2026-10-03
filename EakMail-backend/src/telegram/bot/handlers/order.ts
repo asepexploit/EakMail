@@ -31,6 +31,7 @@ import { formatRupiah, formatExpiry } from '../format.js';
 import { invalidateCatalogCache } from './catalog.js';
 import { paymentMethodKeyboard, PAY_ACTION_PREFIX } from '../keyboards.js';
 import { generateQrPng } from '../qr.js';
+import { setOrderQrMsg } from '../user-state.js';
 
 const log = logger.child({ module: 'bot-order' });
 
@@ -264,10 +265,13 @@ export async function handlePayQris(ctx: Context): Promise<void> {
     // Send QR as image — delete the keyboard message first, then send photo + instructions.
     try { await ctx.deleteMessage(); } catch { /* best-effort */ }
     const qrPng = await generateQrPng(payment.qrString);
-    await ctx.replyWithPhoto(
+    const sent = await ctx.replyWithPhoto(
       { source: qrPng, filename: 'qris.png' },
       { caption: paymentText, parse_mode: 'Markdown' },
     );
+    if (sent.chat.id && sent.message_id) {
+      void setOrderQrMsg(order.id, sent.chat.id, sent.message_id);
+    }
   } else {
     await ctx.editMessageText(paymentText, { parse_mode: 'Markdown' });
   }

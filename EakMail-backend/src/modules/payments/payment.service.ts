@@ -25,6 +25,7 @@ import { verifyWebhookSignature } from './webhook-verify.js';
 import { parseWebhook } from './pakasir-parser.js';
 import type { PakasirWebhookEvent } from './pakasir-types.js';
 import { settleTopupByOrderId } from './topup.service.js';
+import { getOrderQrMsg, clearOrderQrMsg } from '../../telegram/bot/user-state.js';
 import { prisma } from '../../db/client.js';
 import { t } from '../../telegram/bot/i18n/index.js';
 import { MessageKey } from '../../telegram/bot/i18n/keys.js';
@@ -203,9 +204,15 @@ async function sendPaymentConfirmedNotification(orderId: string): Promise<void> 
       amount: fmt(order.amount),
       orderId,
     });
+    const qrMsg = await getOrderQrMsg(orderId);
+    if (qrMsg) void clearOrderQrMsg(orderId);
     await getQueues()[QueueName.NOTIFICATIONS].add(
       'payment-confirmed',
-      { customerTelegramId: order.customer.telegramId, text },
+      {
+        customerTelegramId: order.customer.telegramId,
+        text,
+        ...(qrMsg && { editChatId: qrMsg.chatId, editMessageId: qrMsg.messageId, editDeleteMsg: true }),
+      },
       { jobId: `payment-confirmed-${orderId}`, attempts: 3, delay: 500 },
     );
   } catch (err) {

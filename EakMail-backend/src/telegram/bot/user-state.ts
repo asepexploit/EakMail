@@ -42,6 +42,25 @@ export async function clearTopupMsg(topupId: string): Promise<void> {
   await redis.del(`bot:topup:msg:${topupId}`);
 }
 
+// ---- Order QR message location (for post-payment deletion) ------------------
+
+/** Store {chatId}:{messageId} so the webhook flow can delete the QR photo later. */
+export async function setOrderQrMsg(orderId: string, chatId: string | number, messageId: number): Promise<void> {
+  await redis.set(`bot:order:qr:${orderId}`, `${chatId}:${messageId}`, 'EX', 7200); // 2 h
+}
+
+export async function getOrderQrMsg(orderId: string): Promise<{ chatId: string; messageId: number } | null> {
+  const val = await redis.get(`bot:order:qr:${orderId}`);
+  if (!val) return null;
+  const idx = val.lastIndexOf(':');
+  if (idx === -1) return null;
+  return { chatId: val.slice(0, idx), messageId: parseInt(val.slice(idx + 1), 10) };
+}
+
+export async function clearOrderQrMsg(orderId: string): Promise<void> {
+  await redis.del(`bot:order:qr:${orderId}`);
+}
+
 // ---- Qty manual input state --------------------------------------------------
 
 export async function setAwaitingQty(
