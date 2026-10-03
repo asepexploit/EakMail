@@ -115,6 +115,12 @@ const en: Catalog = {
   [MessageKey.LANGUAGE_BTN_EN]: '🇬🇧 English',
   [MessageKey.LANGUAGE_SWITCHED]: 'Language switched to English. ✅',
 
+  // Help (/help)
+  [MessageKey.HELP_TEXT]:
+    '💬 *HELP & SUPPORT*\n\nIf you have any issues with payment, balance, orders, products, or refunds, please contact our CS via the button below. Include your transaction Ref ID so we can find your order faster.\n\n🕒 *Support hours:* 09:00–21:00 WIB\n❓ *FAQ:* Include your transaction Ref ID when contacting CS.\n\n💬 When contacting CS, include the Ref ID, product name, time of issue, and a brief description. Never send OTPs or personal passwords.\n\nStore: *{{brandName}}*',
+  [MessageKey.HELP_CS_BTN]: '💬 Contact Support',
+  [MessageKey.HELP_BACK_BTN]: '⬅️ Back',
+
   // Errors
   [MessageKey.ERROR_GENERIC]: 'Something went wrong. Please try again later.',
   [MessageKey.ERROR_UNKNOWN_COMMAND]:

@@ -230,6 +230,8 @@ export interface BotConfigDto {
   logoUrl: string | null;
   /** Shown as photo above welcome message on /start */
   startPhotoUrl: string | null;
+  /** URL for the "Hubungi CS" button in /help (e.g. https://t.me/yourcsbot). */
+  csContactUrl: string | null;
   botTokenSet: boolean; // never returns the token itself (write-only)
   menu: BotMenuButton[];
   /** Per-locale editable copy: texts[locale][key] = string. */
@@ -241,6 +243,8 @@ export interface UpdateBotConfigRequest {
   logoUrl?: string | null;
   /** Shown as photo above welcome message on /start */
   startPhotoUrl?: string | null;
+  /** URL for the "Hubungi CS" button in /help (e.g. https://t.me/yourcsbot). */
+  csContactUrl?: string | null;
   /** Write-only; when present, stored encrypted. Never echoed back. */
   botToken?: string;
   menu?: BotMenuButton[];

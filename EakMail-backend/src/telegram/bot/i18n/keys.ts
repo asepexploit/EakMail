@@ -91,6 +91,11 @@ export const MessageKey = {
   LANGUAGE_BTN_EN: 'language.button.en',
   LANGUAGE_SWITCHED: 'language.switched',
 
+  // Help (/help)
+  HELP_TEXT: 'help.text',
+  HELP_CS_BTN: 'help.csBtn',
+  HELP_BACK_BTN: 'help.backBtn',
+
   // Errors
   ERROR_GENERIC: 'error.generic',
   ERROR_UNKNOWN_COMMAND: 'error.unknownCommand',

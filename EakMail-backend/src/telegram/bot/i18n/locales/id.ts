@@ -115,6 +115,12 @@ const id: Catalog = {
   [MessageKey.LANGUAGE_BTN_EN]: '🇬🇧 English',
   [MessageKey.LANGUAGE_SWITCHED]: 'Bahasa diubah ke Bahasa Indonesia. ✅',
 
+  // Help (/help)
+  [MessageKey.HELP_TEXT]:
+    '💬 *BANTUAN & INFORMASI*\n\nJika Anda mengalami masalah dengan pembayaran, saldo, pesanan, produk, atau refund, silakan hubungi CS melalui tombol di bawah. Sertakan Ref transaksi agar pesanan dapat ditemukan lebih cepat.\n\n🕒 *Jam layanan:* 09:00–21:00 WIB\n❓ *FAQ:* Sertakan Ref ID transaksi saat menghubungi CS.\n\n💬 Saat menghubungi CS, sertakan Ref transaksi, nama produk, waktu kejadian, dan penjelasan singkat. Jangan mengirim OTP atau password pribadi.\n\nToko: *{{brandName}}*',
+  [MessageKey.HELP_CS_BTN]: '💬 Hubungi CS',
+  [MessageKey.HELP_BACK_BTN]: '⬅️ Kembali',
+
   // Errors
   [MessageKey.ERROR_GENERIC]: 'Terjadi kesalahan. Silakan coba lagi nanti.',
   [MessageKey.ERROR_UNKNOWN_COMMAND]:

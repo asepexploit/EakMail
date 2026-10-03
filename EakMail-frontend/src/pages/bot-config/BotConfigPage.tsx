@@ -27,6 +27,7 @@ interface Draft {
   brandName: string;
   logoUrl: string;
   startPhotoUrl: string;
+  csContactUrl: string;
   supportContact: string;
   menu: BotMenuButton[];
   texts: Record<LanguageType, Record<string, string>>;
@@ -38,6 +39,7 @@ function toDraft(config: BotConfigDto): Draft {
     brandName: config.brandName,
     logoUrl: config.logoUrl ?? '',
     startPhotoUrl: config.startPhotoUrl ?? '',
+    csContactUrl: config.csContactUrl ?? '',
     supportContact: config.texts[DEFAULT_LANGUAGE]?.supportContact ?? '',
     menu: config.menu,
     texts: {
@@ -77,6 +79,7 @@ export function BotConfigPage() {
       brandName: draft.brandName,
       logoUrl: draft.logoUrl || null,
       startPhotoUrl: draft.startPhotoUrl || null,
+      csContactUrl: draft.csContactUrl || null,
       menu: draft.menu,
       texts: draft.texts,
     };
@@ -122,6 +125,13 @@ export function BotConfigPage() {
                       value={draft.startPhotoUrl}
                       mono
                       onChange={(e) => setDraft({ ...draft, startPhotoUrl: e.target.value })}
+                    />
+                    <Input
+                      label='Kontak CS — link tombol "Hubungi CS" di /help (contoh: https://t.me/username_cs)'
+                      value={draft.csContactUrl}
+                      mono
+                      placeholder="https://t.me/username_cs"
+                      onChange={(e) => setDraft({ ...draft, csContactUrl: e.target.value })}
                     />
                     <Input
                       label={featureStrings.botConfig.supportContact}

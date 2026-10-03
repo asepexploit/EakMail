@@ -75,6 +75,19 @@ export function mainMenuKeyboard(
   return Markup.inlineKeyboard(rows);
 }
 
+/**
+ * Keyboard for /help — "Hubungi CS" URL button (if csContactUrl is set) + "Kembali"
+ * callback that re-shows the main menu.
+ */
+export function helpKeyboard(csContactUrl: string | null, tr: Translator): Markup.Markup<InlineKeyboardMarkup> {
+  const rows: InlineKeyboardButton[][] = [];
+  if (csContactUrl) {
+    rows.push([styledUrl(tr(MessageKey.HELP_CS_BTN), csContactUrl, 'success')]);
+  }
+  rows.push([styledCallback(tr(MessageKey.HELP_BACK_BTN), `${MENU_ACTION_PREFIX}:back`)]);
+  return Markup.inlineKeyboard(rows);
+}
+
 /** Build the language-choice inline keyboard. */
 export function languageKeyboard(tr: Translator): Markup.Markup<InlineKeyboardMarkup> {
   return Markup.inlineKeyboard([

@@ -23,6 +23,7 @@ import {
 } from './handlers/catalog.js';
 import { handleOrder, runOrderFlow, handlePayCallback } from './handlers/order.js';
 import { handleStatus } from './handlers/status.js';
+import { handleHelp } from './handlers/help.js';
 import {
   handleLanguage,
   applyLanguageSelection,
@@ -75,6 +76,12 @@ async function routeMenuAction(ctx: Context, action: string): Promise<void> {
     case 'topup':
       await handleTopup(ctx);
       return;
+    case 'help':
+      await handleHelp(ctx);
+      return;
+    case 'back':
+      await handleStart(ctx);
+      return;
     default:
       // Custom action shaped as "order:<productId>" from a configured catalog button.
       if (action.startsWith('order:')) {
@@ -90,9 +97,11 @@ async function routeMenuAction(ctx: Context, action: string): Promise<void> {
 /** Register all command + callback handlers on a Telegraf instance. */
 function registerHandlers(bot: Telegraf): void {
   bot.start(handleStart);
+  bot.help(handleHelp);
   bot.command('catalog', handleCatalog);
   bot.command('order', handleOrder);
   bot.command('status', handleStatus);
+  bot.command('help', handleHelp);
   bot.command('saldo', handleSaldo);
   bot.command('topup', handleTopup);
   bot.command('language', handleLanguage);

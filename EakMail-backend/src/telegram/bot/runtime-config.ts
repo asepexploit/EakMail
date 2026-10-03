@@ -24,6 +24,8 @@ export interface BotRuntimeConfig {
   logoUrl: string | null;
   /** Photo sent above welcome message on /start */
   startPhotoUrl: string | null;
+  /** URL for the "Hubungi CS" button in /help — null = button hidden. */
+  csContactUrl: string | null;
   menu: BotMenuButton[];
   /** bot_config.texts merged over the static catalog by the i18n resolver. */
   textOverrides: TextOverrides;
@@ -48,6 +50,7 @@ function toRuntime(row: BotConfig): BotRuntimeConfig {
     brandName: row.brandName,
     logoUrl: row.logoUrl,
     startPhotoUrl: row.startPhotoUrl,
+    csContactUrl: row.csContactUrl,
     menu: readMenu(row.menu),
     textOverrides: readTexts(row.texts),
   };

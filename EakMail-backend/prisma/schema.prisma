@@ -196,6 +196,7 @@ model BotConfig {
   brandName      String   @default("EakMail")
   logoUrl        String?
   startPhotoUrl  String? // shown as photo above welcome message on /start
+  csContactUrl   String? // URL for "Hubungi CS" button in /help
   menu           Json     @default("[]")
   texts          Json     @default("{}") // { id: {key:val}, en: {key:val} }
   updatedAt      DateTime @updatedAt
