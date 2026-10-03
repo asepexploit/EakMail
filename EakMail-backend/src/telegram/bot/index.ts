@@ -20,6 +20,8 @@ import {
   handleCategoryCallback,
   handleProductCallback,
   handleOptionCallback,
+  handleManualQtyCallback,
+  handleQtyMessage,
 } from './handlers/catalog.js';
 import { handleOrder, runOrderFlow, handlePayCallback } from './handlers/order.js';
 import { handleStatus } from './handlers/status.js';
@@ -41,6 +43,7 @@ import {
   PAY_ACTION_PREFIX,
   OPT_ACTION_PREFIX,
   OUT_ACTION_PREFIX,
+  MANUAL_QTY_ACTION_PREFIX,
 } from './keyboards.js';
 import { registerSendApi } from './sender.js';
 import { resolveBotToken } from './runtime-config.js';
@@ -147,6 +150,13 @@ function registerHandlers(bot: Telegraf): void {
     }
   });
 
+  // Manual qty prompt: "qtymanual:<productId>" or "qtymanual:<productId>:<optionId>".
+  bot.action(new RegExp(`^${MANUAL_QTY_ACTION_PREFIX}:([^:]+)(?::(.+))?$`), async (ctx) => {
+    const productId = ctx.match[1];
+    const optionId = ctx.match[2];
+    if (productId) await handleManualQtyCallback(ctx, productId, optionId);
+  });
+
   // Payment method selection: "pay:balance:<orderId>" or "pay:qris:<orderId>".
   bot.action(new RegExp(`^${PAY_ACTION_PREFIX}:[^:]+:.+$`), handlePayCallback);
 
@@ -180,10 +190,10 @@ function registerHandlers(bot: Telegraf): void {
     if (isSupportedLanguage(code)) await applyLanguageSelection(ctx, code);
   });
 
-  // Any other text: check if user is awaiting topup input first, then fallback.
+  // Any other text: check awaiting states (qty then topup), then fallback.
   bot.on('text', async (ctx) => {
-    const handled = await handleTopupAmountMessage(ctx);
-    if (handled) return;
+    if (await handleQtyMessage(ctx)) return;
+    if (await handleTopupAmountMessage(ctx)) return;
 
     const resolved = await resolveBotContext(ctx);
     if (!resolved) return;

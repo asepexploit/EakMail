@@ -22,3 +22,28 @@ export async function isAwaitingTopup(telegramId: string | number): Promise<bool
   const val = await redis.get(key(telegramId, 'topup'));
   return val === '1';
 }
+
+// ---- Qty manual input state --------------------------------------------------
+
+export async function setAwaitingQty(
+  telegramId: string | number,
+  productId: string,
+  optionId?: string,
+): Promise<void> {
+  const value = optionId ? `${productId}:${optionId}` : productId;
+  await redis.set(key(telegramId, 'qty'), value, 'EX', TTL_SECONDS);
+}
+
+export async function clearAwaitingQty(telegramId: string | number): Promise<void> {
+  await redis.del(key(telegramId, 'qty'));
+}
+
+export async function getAwaitingQty(
+  telegramId: string | number,
+): Promise<{ productId: string; optionId?: string } | null> {
+  const val = await redis.get(key(telegramId, 'qty'));
+  if (!val) return null;
+  const idx = val.indexOf(':');
+  if (idx === -1) return { productId: val };
+  return { productId: val.slice(0, idx), optionId: val.slice(idx + 1) };
+}

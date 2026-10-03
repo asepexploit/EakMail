@@ -25,6 +25,8 @@ export const OPT_ACTION_PREFIX = 'opt';
 export const PAY_ACTION_PREFIX = 'pay';
 /** callback_data prefix for out-of-stock tap, e.g. "out:productId:productName". */
 export const OUT_ACTION_PREFIX = 'out';
+/** callback_data prefix for manual qty prompt, e.g. "qtymanual:productId" or "qtymanual:productId:optionId". */
+export const MANUAL_QTY_ACTION_PREFIX = 'qtymanual';
 
 /** Default menu when bot_config.menu is empty. `label` is a MessageKey. */
 const DEFAULT_MENU: BotMenuButton[] = [

@@ -27,7 +27,9 @@ import {
   QTY_ACTION_PREFIX,
   OPT_ACTION_PREFIX,
   OUT_ACTION_PREFIX,
+  MANUAL_QTY_ACTION_PREFIX,
 } from '../keyboards.js';
+import { setAwaitingQty, clearAwaitingQty, getAwaitingQty } from '../user-state.js';
 
 let cachedProducts: ProductDto[] | null = null;
 let cacheExpiry = 0;
@@ -127,6 +129,12 @@ function quantityKeyboard(
   } else {
     rows.push([Markup.button.callback(tr(MessageKey.CATALOG_OUT_OF_STOCK), 'noop')]);
   }
+
+  // Manual-input button (always shown so user can type arbitrary qty)
+  const manualData = optionId
+    ? `${MANUAL_QTY_ACTION_PREFIX}:${product.id}:${optionId}`
+    : `${MANUAL_QTY_ACTION_PREFIX}:${product.id}`;
+  rows.push([Markup.button.callback(tr(MessageKey.CATALOG_QTY_MANUAL_BTN), manualData)]);
 
   // Back goes to option selector (if product has options) or product list.
   const backData = product.options.length > 0
@@ -249,4 +257,49 @@ export async function handleOptionCallback(
   }) + stockLine;
 
   await sendOrEdit(ctx, text, quantityKeyboard(product, bot.tr, optionId), product.imageUrl);
+}
+
+/**
+ * Handle qtymanual:<productId>[:<optionId>] — set awaiting-qty Redis state and prompt.
+ */
+export async function handleManualQtyCallback(
+  ctx: Context,
+  productId: string,
+  optionId?: string,
+): Promise<void> {
+  const bot = await resolveBotContext(ctx);
+  if (!bot) return;
+  await ctx.answerCbQuery();
+  const telegramId = ctx.from?.id;
+  if (telegramId) await setAwaitingQty(telegramId, productId, optionId);
+  await ctx.reply(bot.tr(MessageKey.CATALOG_QTY_PROMPT));
+}
+
+/**
+ * Called when a user sends a plain text message and is in awaiting-qty state.
+ * Returns true if handled; false to fall through to the next text handler.
+ */
+export async function handleQtyMessage(ctx: Context): Promise<boolean> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return false;
+
+  const state = await getAwaitingQty(telegramId);
+  if (!state) return false;
+
+  const bot = await resolveBotContext(ctx);
+  if (!bot) return false;
+
+  await clearAwaitingQty(telegramId);
+
+  const text = ctx.message && 'text' in ctx.message ? ctx.message.text.trim() : '';
+  const quantity = parseInt(text.replace(/[.,_\s]/g, ''), 10);
+
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    await ctx.reply(bot.tr(MessageKey.CATALOG_QTY_INVALID));
+    return true;
+  }
+
+  const { runOrderFlow } = await import('./order.js');
+  await runOrderFlow(ctx, bot, state.productId, quantity, state.optionId);
+  return true;
 }

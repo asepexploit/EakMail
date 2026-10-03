@@ -25,6 +25,9 @@ export const MessageKey = {
   CATALOG_OUT_OF_STOCK: 'catalog.outOfStock',
   CATALOG_SELECT_QTY: 'catalog.selectQty',
   CATALOG_SELECT_OPTION: 'catalog.selectOption',
+  CATALOG_QTY_MANUAL_BTN: 'catalog.qtyManualBtn',
+  CATALOG_QTY_PROMPT: 'catalog.qtyPrompt',
+  CATALOG_QTY_INVALID: 'catalog.qtyInvalid',
 
   // Order flow (/order)
   ORDER_USAGE: 'order.usage',

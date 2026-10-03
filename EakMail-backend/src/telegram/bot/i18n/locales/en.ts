@@ -29,6 +29,9 @@ const en: Catalog = {
   [MessageKey.CATALOG_OUT_OF_STOCK]: '❌ Out of stock',
   [MessageKey.CATALOG_SELECT_QTY]: '📦 {{name}}\n💵 Price: Rp{{price}}/pcs\n\nSelect quantity:',
   [MessageKey.CATALOG_SELECT_OPTION]: 'Choose a product option below:',
+  [MessageKey.CATALOG_QTY_MANUAL_BTN]: '✏️ Type quantity',
+  [MessageKey.CATALOG_QTY_PROMPT]: 'Type the quantity you want to order (number, e.g. 10):',
+  [MessageKey.CATALOG_QTY_INVALID]: '❌ Invalid quantity. Please enter a number greater than 0.',
 
   // Order flow
   [MessageKey.ORDER_USAGE]: 'How to order: type /order <product_id>.\nSee available products with /catalog.',

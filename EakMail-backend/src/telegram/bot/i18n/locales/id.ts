@@ -29,6 +29,9 @@ const id: Catalog = {
   [MessageKey.CATALOG_OUT_OF_STOCK]: '❌ Stok habis',
   [MessageKey.CATALOG_SELECT_QTY]: '📦 {{name}}\n💵 Harga: Rp{{price}}/pcs\n\nPilih jumlah:',
   [MessageKey.CATALOG_SELECT_OPTION]: 'Pilih opsi produk di bawah:',
+  [MessageKey.CATALOG_QTY_MANUAL_BTN]: '✏️ Ketik jumlah',
+  [MessageKey.CATALOG_QTY_PROMPT]: 'Ketik jumlah yang ingin dipesan (angka, contoh: 10):',
+  [MessageKey.CATALOG_QTY_INVALID]: '❌ Jumlah tidak valid. Masukkan angka lebih dari 0.',
 
   // Order flow
   [MessageKey.ORDER_USAGE]: 'Cara pesan: ketik /order <id_produk>.\nLihat daftar produk dengan /catalog.',
