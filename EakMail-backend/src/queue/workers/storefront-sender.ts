@@ -53,7 +53,7 @@ class TelegramBotSender implements StorefrontSender {
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: customerTelegramId, text }),
+      body: JSON.stringify({ chat_id: customerTelegramId, text, parse_mode: 'Markdown' }),
     });
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
