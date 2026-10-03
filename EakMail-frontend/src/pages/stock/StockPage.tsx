@@ -388,7 +388,10 @@ function ProductStockPanel({ productId, productName, stockMode, deliveryTemplate
                             <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Payload</th>
                             <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Ditambah</th>
                             {tab === 'sold' && (
-                              <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Terjual</th>
+                              <>
+                                <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Terjual</th>
+                                <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Pembeli</th>
+                              </>
                             )}
                             <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Status</th>
                           </tr>
@@ -402,9 +405,18 @@ function ProductStockPanel({ productId, productName, stockMode, deliveryTemplate
                               </td>
                               <td className="px-3 py-2 text-text-muted text-xs whitespace-nowrap">{fmtDate(item.createdAt)}</td>
                               {tab === 'sold' && (
-                                <td className="px-3 py-2 text-text-muted text-xs whitespace-nowrap">
-                                  {item.usedAt ? fmtDate(item.usedAt) : '-'}
-                                </td>
+                                <>
+                                  <td className="px-3 py-2 text-text-muted text-xs whitespace-nowrap">
+                                    {item.usedAt ? fmtDate(item.usedAt) : '-'}
+                                  </td>
+                                  <td className="px-3 py-2 text-xs">
+                                    {item.customerName ? (
+                                      <span className="font-medium text-text">{item.customerName}</span>
+                                    ) : (
+                                      <span className="text-text-muted">—</span>
+                                    )}
+                                  </td>
+                                </>
                               )}
                               <td className="px-3 py-2">
                                 {item.usedAt ? (
