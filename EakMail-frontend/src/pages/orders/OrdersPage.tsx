@@ -114,15 +114,7 @@ export function OrdersPage() {
       key: 'status',
       header: featureStrings.orders.status,
       render: (row) => (
-        <div className="flex flex-col gap-0.5">
-          <StatusPill tone={orderStatusTone(row.status)} label={orderStatusLabel[row.status]} />
-          {row.status === OrderStatus.EXPIRED && (
-            <span className="text-[10px] text-danger/80">⏰ Tidak dibayar</span>
-          )}
-          {row.status === OrderStatus.FAILED && (
-            <span className="text-[10px] text-danger/80">❌ Perlu refund</span>
-          )}
-        </div>
+        <StatusPill tone={orderStatusTone(row.status)} label={orderStatusLabel[row.status]} />
       ),
     },
   ];
@@ -142,15 +134,18 @@ export function OrdersPage() {
       {/* Quick-stats bar */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Menunggu Bayar', value: counts.pending, color: 'text-warning' },
-          { label: 'Terkirim', value: counts.delivered, color: 'text-success' },
-          { label: 'Kadaluarsa', value: counts.expired, color: 'text-danger' },
-          { label: 'Gagal', value: counts.failed, color: 'text-danger' },
-        ].map(({ label, value, color }) => (
-          <Card key={label} className="flex flex-col gap-1 p-4">
-            <span className="text-xs text-text-muted">{label}</span>
-            <span className={`text-2xl font-bold tabular-nums ${color}`}>{value}</span>
-          </Card>
+          { label: 'Menunggu Bayar', value: counts.pending, accent: 'border-l-warning', color: 'text-warning' },
+          { label: 'Terkirim', value: counts.delivered, accent: 'border-l-success', color: 'text-success' },
+          { label: 'Kadaluarsa', value: counts.expired, accent: 'border-l-danger', color: 'text-danger' },
+          { label: 'Gagal', value: counts.failed, accent: 'border-l-danger', color: 'text-danger' },
+        ].map(({ label, value, accent, color }) => (
+          <div
+            key={label}
+            className={`elevation-1 rounded-md border border-border bg-surface border-l-4 ${accent} p-4`}
+          >
+            <p className={`text-3xl font-bold tabular-nums leading-none ${color}`}>{value}</p>
+            <p className="mt-1.5 text-xs text-text-muted">{label}</p>
+          </div>
         ))}
       </div>
 
