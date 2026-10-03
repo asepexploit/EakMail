@@ -20,6 +20,7 @@ import {
   handleCategoryCallback,
   handleProductCallback,
   handleOptionCallback,
+  handleOutOfStockCallback,
   handleManualQtyCallback,
   handleQtyMessage,
 } from './handlers/catalog.js';
@@ -174,13 +175,11 @@ function registerHandlers(bot: Telegraf): void {
     await ctx.answerCbQuery();
   });
 
-  // Out-of-stock tap: "out:<productId>:<encodedName>" — show informative popup.
-  bot.action(new RegExp(`^${OUT_ACTION_PREFIX}:([^:]+):(.+)$`), async (ctx) => {
-    const name = decodeURIComponent(ctx.match[2] ?? '');
-    await ctx.answerCbQuery(
-      `📦 Stok Habis\n\n${name} sedang tidak tersedia.\nSilakan pilih produk lain atau coba lagi nanti.`,
-      { show_alert: true },
-    );
+  // Out-of-stock tap: "out:<productId>" — show informative popup.
+  // Name is looked up from the in-process cache to keep callback_data under Telegram's 64-byte limit.
+  bot.action(new RegExp(`^${OUT_ACTION_PREFIX}:([^:]+)$`), async (ctx) => {
+    const productId = ctx.match[1] ?? '';
+    await handleOutOfStockCallback(ctx, productId);
   });
 
   // Language selection: "lang:<code>".

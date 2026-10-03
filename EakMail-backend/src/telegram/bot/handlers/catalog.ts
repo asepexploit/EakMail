@@ -79,9 +79,9 @@ function productListKeyboard(products: ProductDto[], tr: Translator): Markup.Mar
     const label = `${p.name} — Rp ${formatRupiah(p.price)}${stockLabel}`;
 
     if (isOut) {
-      // Encode product name (max 40 chars) into callback_data for the popup message.
-      const safeName = encodeURIComponent(p.name.slice(0, 40));
-      return [Markup.button.callback(label, `${OUT_ACTION_PREFIX}:${p.id}:${safeName}`)];
+      // callback_data is capped at 64 bytes by Telegram — just send the product ID.
+      // The handler looks up the name from the in-process cache.
+      return [Markup.button.callback(label, `${OUT_ACTION_PREFIX}:${p.id}`)];
     }
     return [Markup.button.callback(label, `${PROD_ACTION_PREFIX}:${p.id}`)];
   });
@@ -257,6 +257,20 @@ export async function handleOptionCallback(
   }) + stockLine;
 
   await sendOrEdit(ctx, text, quantityKeyboard(product, bot.tr, optionId), product.imageUrl);
+}
+
+/**
+ * Handle out:<productId> — show "out of stock" popup (answerCbQuery alert).
+ * Looks up the name from the in-process product cache so callback_data stays short.
+ */
+export async function handleOutOfStockCallback(ctx: Context, productId: string): Promise<void> {
+  const products = await getActiveProducts();
+  const product = products.find((p) => p.id === productId);
+  const name = product?.name ?? 'Produk ini';
+  await ctx.answerCbQuery(
+    `📦 Stok Habis\n\n${name} sedang tidak tersedia.\nSilakan pilih produk lain atau coba lagi nanti.`,
+    { show_alert: true },
+  );
 }
 
 /**
