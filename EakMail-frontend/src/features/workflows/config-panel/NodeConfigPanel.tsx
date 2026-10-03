@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import {
   NodeType,
@@ -8,6 +9,7 @@ import {
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
+import { Button } from '@/components/ui/Button';
 import { nodeTitle } from '../node-catalog.js';
 import { featureStrings } from '@/features/shared/feature-strings';
 
@@ -19,9 +21,16 @@ export interface NodeConfigPanelProps {
   onDelete: (nodeId: string) => void;
 }
 
-/** Right config panel: per-node form bound to the selected node's config (§8.1). */
+/** Right config panel: local draft state, applied to the node on "Simpan". */
 export function NodeConfigPanel({ node, onChange, onDelete }: NodeConfigPanelProps) {
-  if (!node) {
+  const [draft, setDraft] = useState<WorkflowNode | null>(node);
+
+  // Reset draft when selected node changes.
+  useEffect(() => {
+    setDraft(node);
+  }, [node?.id]);
+
+  if (!node || !draft) {
     return (
       <aside className="w-72 shrink-0 border-l border-border bg-surface p-4">
         <p className="text-sm text-text-muted">{featureStrings.workflows.builder.noSelection}</p>
@@ -30,15 +39,19 @@ export function NodeConfigPanel({ node, onChange, onDelete }: NodeConfigPanelPro
   }
 
   function patchConfig<T extends NodeTypeValue>(patch: Partial<NodeConfigMap[T]>) {
-    if (!node) return;
-    onChange({ ...node, config: { ...node.config, ...patch } } as WorkflowNode);
+    if (!draft) return;
+    setDraft({ ...draft, config: { ...draft.config, ...patch } } as WorkflowNode);
+  }
+
+  function handleSave() {
+    if (draft) onChange(draft);
   }
 
   const type = node.type as NodeTypeValue;
 
   return (
-    <aside className="scroll-thin w-72 shrink-0 overflow-y-auto border-l border-border bg-surface p-4">
-      <div className="mb-4 flex items-center justify-between">
+    <aside className="scroll-thin flex w-72 shrink-0 flex-col overflow-y-auto border-l border-border bg-surface">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <h3 className="text-sm font-semibold text-text">{nodeTitle(type)}</h3>
         {type !== NodeType.START && (
           <button
@@ -52,14 +65,19 @@ export function NodeConfigPanel({ node, onChange, onDelete }: NodeConfigPanelPro
         )}
       </div>
 
-      <div className="space-y-3">
+      <div className="flex-1 space-y-3 p-4">
         <Input
           label={fields.label}
-          value={node.config.label ?? ''}
+          value={draft.config.label ?? ''}
           onChange={(e) => patchConfig({ label: e.target.value })}
         />
+        <NodeFields type={type} config={draft.config} patch={patchConfig} />
+      </div>
 
-        <NodeFields type={type} config={node.config} patch={patchConfig} />
+      <div className="border-t border-border p-4">
+        <Button className="w-full" onClick={handleSave}>
+          Simpan Node
+        </Button>
       </div>
     </aside>
   );

@@ -94,29 +94,20 @@ function CanvasInner({
   const onGraphChangeRef = useRef(onGraphChange);
   onGraphChangeRef.current = onGraphChange;
 
-  // Reseed React Flow whenever graph changes (load, rollback, add/delete, config edit).
-  // The write-back effect below guards against looping: it only fires when the structural
-  // signature (ids + positions) differs from what we last seeded, so a config-only reseed
-  // does not trigger an onGraphChange call back to the page.
-  const lastSeedSig = useRef(graphSignature(graph));
+  const lastGraphSig = useRef(graphSignature(graph));
   useEffect(() => {
     const incoming = graphSignature(graph);
-    const sigChanged = incoming !== lastSeedSig.current;
-    if (sigChanged) lastSeedSig.current = incoming;
-    // Always update node data so config panel changes appear on the canvas immediately.
-    setNodes(toFlowNodes(graph));
-    if (sigChanged) setEdges(toFlowEdges(graph));
+    if (incoming !== lastGraphSig.current) {
+      lastGraphSig.current = incoming;
+      setNodes(toFlowNodes(graph));
+      setEdges(toFlowEdges(graph));
+    }
   }, [graph, setNodes, setEdges]);
 
-  // Write React Flow's state back to the domain graph — but ONLY when it structurally differs
-  // from the graph we last seeded from. This makes the effect idempotent: re-running it with
-  // the seeded state (first render, StrictMode replay, post-reseed) is a no-op, so a freshly
-  // loaded graph is never overwritten by a stale seed. Only a genuine user edit (add/remove
-  // node or edge, reconnect) changes the signature and propagates out.
   useEffect(() => {
     const currentSig = flowSignature(nodes, edges);
-    if (currentSig === lastSeedSig.current) return;
-    lastSeedSig.current = currentSig;
+    if (currentSig === lastGraphSig.current) return;
+    lastGraphSig.current = currentSig;
     onGraphChangeRef.current(fromFlow(nodes, edges, graphRef.current));
   }, [nodes, edges]);
 
