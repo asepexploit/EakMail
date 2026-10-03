@@ -87,6 +87,9 @@ const id: Catalog = {
     '🎉 *Pesanan Berhasil Dikirim!*\n\nHei! Produk digitalmu sudah siap nih 🚀\n\n📦 *Berikut produkmu:*\n\n{{payload}}\n\n──────────────────────\n🆔 ID Pesanan: `{{orderId}}`\nSimpan pesan ini sebagai bukti ya!\n──────────────────────\n\nTerima kasih sudah belanja! ❤️',
 
   // Payment outcome notifications
+  [MessageKey.TOPUP_EXPIRED]:
+    '⏰ *Topup Kadaluarsa*\n\nWaktu pembayaran topup senilai *Rp {{amount}}* sudah habis.\n\nTenang, tidak ada biaya dikenakan.\nMau coba lagi? Ketik /saldo 💳',
+
   [MessageKey.TOPUP_SUCCESS]:
     '✅ *Top Up Berhasil!*\n\nSaldo kamu sudah berhasil ditambahkan 🎉\n\n💰 Nominal: *Rp {{amount}}*\n💳 Metode: QRIS\n\n──────────────────────\n💼 Saldo kamu sekarang: *Rp {{newBalance}}*\n──────────────────────\n\nSiap belanja? Ketik /catalog untuk lihat produk 🛍️',
 

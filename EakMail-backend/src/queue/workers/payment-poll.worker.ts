@@ -25,6 +25,7 @@ import { orderRepository } from '../../modules/orders/order.repository.js';
 import { prisma } from '../../db/client.js';
 import { t } from '../../telegram/bot/i18n/index.js';
 import { MessageKey } from '../../telegram/bot/i18n/keys.js';
+import { getOrderQrMsg, clearOrderQrMsg } from '../../telegram/bot/user-state.js';
 import type { WorkerBuildDeps } from './types.js';
 
 const log = logger.child({ module: 'payment-poll-worker' });
@@ -131,9 +132,15 @@ async function sendPaymentExpiredNotification(orderId: string): Promise<void> {
       amount: fmt(order.amount),
       orderId,
     });
+    const qrMsg = await getOrderQrMsg(orderId);
+    if (qrMsg) void clearOrderQrMsg(orderId);
     await getQueues()[QueueName.NOTIFICATIONS].add(
       'payment-expired',
-      { customerTelegramId: order.customer.telegramId, text },
+      {
+        customerTelegramId: order.customer.telegramId,
+        text,
+        ...(qrMsg && { editChatId: qrMsg.chatId, editMessageId: qrMsg.messageId, editDeleteMsg: true }),
+      },
       { jobId: `payment-expired-${orderId}`, attempts: 3 },
     );
   } catch (err) {

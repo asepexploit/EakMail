@@ -25,7 +25,6 @@ import { verifyWebhookSignature } from './webhook-verify.js';
 import { parseWebhook } from './pakasir-parser.js';
 import type { PakasirWebhookEvent } from './pakasir-types.js';
 import { settleTopupByOrderId } from './topup.service.js';
-import { getOrderQrMsg, clearOrderQrMsg } from '../../telegram/bot/user-state.js';
 import { prisma } from '../../db/client.js';
 import { t } from '../../telegram/bot/i18n/index.js';
 import { MessageKey } from '../../telegram/bot/i18n/keys.js';
@@ -147,6 +146,7 @@ export const paymentService = {
       if (payment.status === PaymentStatus.PENDING) {
         await paymentRepository.updateStatus(event.orderId, event.status);
         log.info({ orderId: event.orderId, status: event.status }, 'Payment status updated from webhook');
+        // QR cleanup and customer notification are handled by the poll worker / sweep.
       }
     }
   },

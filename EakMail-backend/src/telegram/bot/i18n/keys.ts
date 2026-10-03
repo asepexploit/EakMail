@@ -73,6 +73,7 @@ export const MessageKey = {
 
   // Payment outcome notifications (sent proactively after webhook / expiry)
   TOPUP_SUCCESS: 'topup.success',
+  TOPUP_EXPIRED: 'topup.expired',
   PAYMENT_CONFIRMED: 'payment.confirmed',
   PAYMENT_EXPIRED: 'payment.expired',
 

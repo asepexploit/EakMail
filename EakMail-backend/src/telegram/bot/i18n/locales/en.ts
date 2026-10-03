@@ -87,6 +87,9 @@ const en: Catalog = {
     '🎉 *Order Delivered!*\n\nHey! Your digital product is ready 🚀\n\n📦 *Your product:*\n\n{{payload}}\n\n──────────────────────\n🆔 Order ID: `{{orderId}}`\nKeep this message as proof!\n──────────────────────\n\nThank you for shopping! ❤️',
 
   // Payment outcome notifications
+  [MessageKey.TOPUP_EXPIRED]:
+    '⏰ *Top Up Expired*\n\nThe payment window for your top up of *Rp {{amount}}* has expired.\n\nDon\'t worry, no charges applied.\nWant to try again? Type /saldo 💳',
+
   [MessageKey.TOPUP_SUCCESS]:
     '✅ *Top Up Successful!*\n\nYour balance has been credited 🎉\n\n💰 Amount: *Rp {{amount}}*\n💳 Method: QRIS\n\n──────────────────────\n💼 Your balance now: *Rp {{newBalance}}*\n──────────────────────\n\nReady to shop? Type /catalog to browse products 🛍️',
 

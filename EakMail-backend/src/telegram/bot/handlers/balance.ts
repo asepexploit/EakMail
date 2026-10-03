@@ -14,7 +14,7 @@ import { formatRupiah, formatExpiry } from '../format.js';
 import { generateQrPng } from '../qr.js';
 import { createTopup, cancelTopup, MIN_TOPUP, MAX_TOPUP } from '../../../modules/payments/topup.service.js';
 import { logger } from '../../../lib/logger.js';
-import { setAwaitingTopup, clearAwaitingTopup, setTopupMsg } from '../user-state.js';
+import { setAwaitingTopup, clearAwaitingTopup, setTopupMsg, clearTopupMsg } from '../user-state.js';
 
 const log = logger.child({ module: 'bot-balance' });
 
@@ -94,6 +94,7 @@ export async function handleTopupCancelCallback(ctx: Context): Promise<void> {
 
   const ok = await cancelTopup(topupId, bot.customer.id);
   if (ok) {
+    void clearTopupMsg(topupId);
     await ctx.editMessageCaption(bot.tr(MessageKey.TOPUP_CANCELLED), { parse_mode: 'Markdown' });
   } else {
     await ctx.reply(bot.tr(MessageKey.TOPUP_CANCEL_NOT_FOUND));
