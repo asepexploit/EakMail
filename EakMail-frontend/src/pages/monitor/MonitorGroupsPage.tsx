@@ -60,8 +60,16 @@ export default function MonitorGroupsPage() {
             variant="ghost"
             className="text-warning shrink-0"
             onClick={() => {
-              const id = filterAccountId || (accounts[0]?.id ?? '');
-              if (id) leaveReadOnly.mutate(id);
+              if (filterAccountId) {
+                // Filtered to one account — leave only that account's read-only groups
+                leaveReadOnly.mutate(filterAccountId);
+              } else {
+                // No filter — leave read-only groups for every account that has them
+                const accountsWithReadOnly = [
+                  ...new Set(groups.filter((g) => g.status === 'READ_ONLY').map((g) => g.accountId)),
+                ];
+                for (const id of accountsWithReadOnly) leaveReadOnly.mutate(id);
+              }
             }}
             isLoading={leaveReadOnly.isPending}
           >

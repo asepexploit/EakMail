@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Activity, RefreshCw, Wifi, WifiOff, Clock, Radio, LogIn, ScanEye, ListOrdered, MessageSquare } from 'lucide-react';
+import { Activity, RefreshCw, Wifi, WifiOff, Clock, Radio, LogIn, ScanEye, ListOrdered, MessageSquare, LogOut } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import {
   useMonitorAccounts,
   useUpdateMonitor,
   useSyncAccountGroups,
+  useLeaveReadOnly,
   type MonitorAccountRow,
 } from '@/features/monitor/api/useMonitor';
 
@@ -15,6 +16,7 @@ export default function MonitorAccountsPage() {
   const { data: accounts = [], isLoading } = useMonitorAccounts();
   const updateMonitor = useUpdateMonitor();
   const syncGroups = useSyncAccountGroups();
+  const leaveReadOnly = useLeaveReadOnly();
 
   return (
     <div className="space-y-6 p-6">
@@ -46,6 +48,8 @@ export default function MonitorAccountsPage() {
               }
               onSync={() => syncGroups.mutate(acc.id)}
               isSyncing={syncGroups.isPending && syncGroups.variables === acc.id}
+              onLeaveReadOnly={() => leaveReadOnly.mutate(acc.id)}
+              isLeavingReadOnly={leaveReadOnly.isPending && leaveReadOnly.variables === acc.id}
             />
           ))}
         </div>
@@ -60,9 +64,11 @@ interface MonitorAccountCardProps {
   onToggleLog: (enabled: boolean) => void;
   onSync: () => void;
   isSyncing: boolean;
+  onLeaveReadOnly: () => void;
+  isLeavingReadOnly: boolean;
 }
 
-function MonitorAccountCard({ account: a, onToggle, onToggleLog, onSync, isSyncing }: MonitorAccountCardProps) {
+function MonitorAccountCard({ account: a, onToggle, onToggleLog, onSync, isSyncing, onLeaveReadOnly, isLeavingReadOnly }: MonitorAccountCardProps) {
   const [localMax, setLocalMax] = useState(a.autoJoinMaxPerHour);
 
   const isConnected = a.status === 'CONNECTED';
@@ -169,10 +175,25 @@ function MonitorAccountCard({ account: a, onToggle, onToggleLog, onSync, isSynci
           </button>
         </div>
 
-        <Button size="sm" variant="ghost" onClick={onSync} isLoading={isSyncing} disabled={!isConnected} className="w-full">
-          <RefreshCw className="h-3.5 w-3.5" />
-          Sinkron grup dari akun
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="ghost" onClick={onSync} isLoading={isSyncing} disabled={!isConnected} className="flex-1">
+            <RefreshCw className="h-3.5 w-3.5" />
+            Sinkron grup
+          </Button>
+          {a.groupStats.readOnly > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="flex-1 text-warning"
+              onClick={onLeaveReadOnly}
+              isLoading={isLeavingReadOnly}
+              disabled={!isConnected}
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Leave read-only ({a.groupStats.readOnly})
+            </Button>
+          )}
+        </div>
       </div>
     </Card>
   );
