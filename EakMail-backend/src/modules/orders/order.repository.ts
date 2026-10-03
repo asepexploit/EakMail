@@ -18,6 +18,8 @@ const orderWithRelations = {
     // Many executions can belong to one order (one per fulfillment iteration when quantity > 1).
     // Expose the latest one for callers that only need "the current execution".
     executions: { orderBy: { createdAt: 'desc' }, take: 1 },
+    product: { select: { name: true } },
+    customer: { select: { firstName: true, lastName: true, username: true } },
   },
 } satisfies Prisma.OrderDefaultArgs;
 

@@ -55,19 +55,17 @@ export function OrdersPage() {
     {
       key: 'created',
       header: featureStrings.orders.created,
-      align: 'right',
       sortable: true,
       sortValue: (row) => row.createdAt,
       render: (row) => (
-        <span className="text-text-muted">{formatDateTime(row.createdAt)}</span>
+        <span className="whitespace-nowrap text-text-muted">{formatDateTime(row.createdAt)}</span>
       ),
     },
     {
       key: 'id',
       header: featureStrings.orders.id,
-      mono: true,
       render: (row) => (
-        <span className="font-mono text-xs text-text" title={row.id}>
+        <span className="font-mono text-xs text-text-muted" title={row.id}>
           {shortId(row.id)}
         </span>
       ),
@@ -76,8 +74,10 @@ export function OrdersPage() {
       key: 'customer',
       header: featureStrings.orders.customer,
       render: (row) => (
-        <span className="font-mono text-xs text-text-muted" title={row.customerId}>
-          {shortId(row.customerId)}
+        <span className="font-medium text-text" title={row.customerId}>
+          {row.customerName ?? (
+            <span className="font-mono text-xs text-text-muted">{shortId(row.customerId)}</span>
+          )}
         </span>
       ),
     },
@@ -85,17 +85,17 @@ export function OrdersPage() {
       key: 'product',
       header: featureStrings.orders.product,
       render: (row) => (
-        <span className="font-mono text-xs text-text-muted" title={row.productId}>
-          {shortId(row.productId)}
+        <span className="font-medium text-text" title={row.productId}>
+          {row.productName}
         </span>
       ),
     },
     {
       key: 'qty',
       header: 'Qty',
-      align: 'right',
+      align: 'center',
       render: (row) => (
-        <span className="tabular-nums text-text-muted">{row.quantity}x</span>
+        <span className="tabular-nums text-text-muted">{row.quantity}×</span>
       ),
     },
     {
@@ -105,7 +105,7 @@ export function OrdersPage() {
       sortable: true,
       sortValue: (row) => row.amount,
       render: (row) => (
-        <span className="tabular-nums font-semibold text-text">
+        <span className="whitespace-nowrap tabular-nums font-semibold text-text">
           Rp {formatRupiah(row.amount)}
         </span>
       ),
@@ -116,10 +116,11 @@ export function OrdersPage() {
       render: (row) => (
         <div className="flex flex-col gap-0.5">
           <StatusPill tone={orderStatusTone(row.status)} label={orderStatusLabel[row.status]} />
-          {(row.status === OrderStatus.EXPIRED || row.status === OrderStatus.FAILED) && (
-            <span className="text-[10px] text-danger/80">
-              {row.status === OrderStatus.EXPIRED ? '⏰ Tidak dibayar' : '❌ Perlu refund'}
-            </span>
+          {row.status === OrderStatus.EXPIRED && (
+            <span className="text-[10px] text-danger/80">⏰ Tidak dibayar</span>
+          )}
+          {row.status === OrderStatus.FAILED && (
+            <span className="text-[10px] text-danger/80">❌ Perlu refund</span>
           )}
         </div>
       ),

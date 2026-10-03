@@ -277,6 +277,10 @@ export interface OrderDto {
   id: string;
   customerId: string;
   productId: string;
+  /** Display name of the product at time of list fetch. */
+  productName: string;
+  /** Customer's full name (firstName + lastName), @username, or null if unknown. */
+  customerName: string | null;
   quantity: number;
   amount: number;
   status: OrderStatus;

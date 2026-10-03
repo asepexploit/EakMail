@@ -9,10 +9,19 @@ import { toPaymentDto } from '../payments/payment.mapper.js';
 import type { OrderRecord } from './order.repository.js';
 
 export function toOrderDto(order: OrderRecord): OrderDto {
+  const c = order.customer;
+  const customerName = c.firstName
+    ? [c.firstName, c.lastName].filter(Boolean).join(' ')
+    : c.username
+      ? `@${c.username}`
+      : null;
+
   return {
     id: order.id,
     customerId: order.customerId,
     productId: order.productId,
+    productName: order.product.name,
+    customerName,
     quantity: order.quantity,
     amount: order.amount,
     status: order.status as OrderStatus,
