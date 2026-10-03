@@ -23,6 +23,8 @@ export const QTY_ACTION_PREFIX = 'qty';
 export const OPT_ACTION_PREFIX = 'opt';
 /** callback_data prefix for payment method selection, e.g. "pay:balance:orderId". */
 export const PAY_ACTION_PREFIX = 'pay';
+/** callback_data prefix for out-of-stock tap, e.g. "out:productId:productName". */
+export const OUT_ACTION_PREFIX = 'out';
 
 /** Default menu when bot_config.menu is empty. `label` is a MessageKey. */
 const DEFAULT_MENU: BotMenuButton[] = [

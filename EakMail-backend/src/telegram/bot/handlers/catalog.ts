@@ -26,6 +26,7 @@ import {
   PROD_ACTION_PREFIX,
   QTY_ACTION_PREFIX,
   OPT_ACTION_PREFIX,
+  OUT_ACTION_PREFIX,
 } from '../keyboards.js';
 
 let cachedProducts: ProductDto[] | null = null;
@@ -76,7 +77,9 @@ function productListKeyboard(products: ProductDto[], tr: Translator): Markup.Mar
     const label = `${p.name} — Rp ${formatRupiah(p.price)}${stockLabel}`;
 
     if (isOut) {
-      return [Markup.button.callback(label, 'noop')];
+      // Encode product name (max 40 chars) into callback_data for the popup message.
+      const safeName = encodeURIComponent(p.name.slice(0, 40));
+      return [Markup.button.callback(label, `${OUT_ACTION_PREFIX}:${p.id}:${safeName}`)];
     }
     return [Markup.button.callback(label, `${PROD_ACTION_PREFIX}:${p.id}`)];
   });

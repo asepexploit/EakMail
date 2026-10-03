@@ -39,6 +39,7 @@ import {
   QTY_ACTION_PREFIX,
   PAY_ACTION_PREFIX,
   OPT_ACTION_PREFIX,
+  OUT_ACTION_PREFIX,
 } from './keyboards.js';
 import { registerSendApi } from './sender.js';
 import { resolveBotToken } from './runtime-config.js';
@@ -149,9 +150,18 @@ function registerHandlers(bot: Telegraf): void {
   // Balance top-up manual prompt button.
   bot.action('topup:prompt', handleTopupPromptCallback);
 
-  // No-op button (e.g. out-of-stock indicator) — show a brief toast, not a full message.
+  // No-op button — just acknowledge (used for generic disabled buttons).
   bot.action('noop', async (ctx) => {
-    await ctx.answerCbQuery('❌ Stok habis', { show_alert: true });
+    await ctx.answerCbQuery();
+  });
+
+  // Out-of-stock tap: "out:<productId>:<encodedName>" — show informative popup.
+  bot.action(new RegExp(`^${OUT_ACTION_PREFIX}:([^:]+):(.+)$`), async (ctx) => {
+    const name = decodeURIComponent(ctx.match[2] ?? '');
+    await ctx.answerCbQuery(
+      `📦 Stok Habis\n\n${name} sedang tidak tersedia.\nSilakan pilih produk lain atau coba lagi nanti.`,
+      { show_alert: true },
+    );
   });
 
   // Language selection: "lang:<code>".
