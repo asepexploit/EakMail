@@ -151,7 +151,7 @@ function registerHandlers(bot: Telegraf): void {
 
   // No-op button (e.g. out-of-stock indicator) — show a brief toast, not a full message.
   bot.action('noop', async (ctx) => {
-    await ctx.answerCbQuery('❌ Stok habis', { show_alert: false });
+    await ctx.answerCbQuery('❌ Stok habis', { show_alert: true });
   });
 
   // Language selection: "lang:<code>".
