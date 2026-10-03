@@ -234,6 +234,8 @@ export interface BotConfigDto {
   startPhotoUrl: string | null;
   /** URL for the "Hubungi CS" button in /help (e.g. https://t.me/yourcsbot). */
   csContactUrl: string | null;
+  /** Optional image shown in place of the QR code after topup succeeds. */
+  topupSuccessImageUrl: string | null;
   botTokenSet: boolean; // never returns the token itself (write-only)
   menu: BotMenuButton[];
   /** Per-locale editable copy: texts[locale][key] = string. */
@@ -247,6 +249,8 @@ export interface UpdateBotConfigRequest {
   startPhotoUrl?: string | null;
   /** URL for the "Hubungi CS" button in /help (e.g. https://t.me/yourcsbot). */
   csContactUrl?: string | null;
+  /** Optional image shown in place of the QR code after topup succeeds. */
+  topupSuccessImageUrl?: string | null;
   /** Write-only; when present, stored encrypted. Never echoed back. */
   botToken?: string;
   menu?: BotMenuButton[];

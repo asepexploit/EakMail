@@ -23,6 +23,25 @@ export async function isAwaitingTopup(telegramId: string | number): Promise<bool
   return val === '1';
 }
 
+// ---- Topup QR message location (for post-payment keyboard removal) -----------
+
+/** Store {chatId}:{messageId} so the settle flow can edit the QR message later. */
+export async function setTopupMsg(topupId: string, chatId: string | number, messageId: number): Promise<void> {
+  await redis.set(`bot:topup:msg:${topupId}`, `${chatId}:${messageId}`, 'EX', 7200); // 2 h
+}
+
+export async function getTopupMsg(topupId: string): Promise<{ chatId: string; messageId: number } | null> {
+  const val = await redis.get(`bot:topup:msg:${topupId}`);
+  if (!val) return null;
+  const idx = val.lastIndexOf(':');
+  if (idx === -1) return null;
+  return { chatId: val.slice(0, idx), messageId: parseInt(val.slice(idx + 1), 10) };
+}
+
+export async function clearTopupMsg(topupId: string): Promise<void> {
+  await redis.del(`bot:topup:msg:${topupId}`);
+}
+
 // ---- Qty manual input state --------------------------------------------------
 
 export async function setAwaitingQty(

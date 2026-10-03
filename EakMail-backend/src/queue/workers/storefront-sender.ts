@@ -19,6 +19,10 @@ const log = logger.child({ module: 'storefront-sender' });
 /** The one operation workers need: deliver a text message to a customer chat. */
 export interface StorefrontSender {
   sendText(customerTelegramId: string, text: string): Promise<void>;
+  /** Remove inline keyboard from an existing message (best-effort; swallows errors). */
+  removeKeyboard(chatId: string, messageId: number): Promise<void>;
+  /** Replace a photo message's image (best-effort; swallows errors). */
+  replacePhoto(chatId: string, messageId: number, photoUrl: string): Promise<void>;
   readonly isMock: boolean;
 }
 
@@ -27,6 +31,12 @@ class MockStorefrontSender implements StorefrontSender {
   readonly isMock = true;
   async sendText(customerTelegramId: string, text: string): Promise<void> {
     log.info({ customerTelegramId, textLength: text.length }, 'mock storefront send');
+  }
+  async removeKeyboard(chatId: string, messageId: number): Promise<void> {
+    log.info({ chatId, messageId }, 'mock remove keyboard');
+  }
+  async replacePhoto(chatId: string, messageId: number, photoUrl: string): Promise<void> {
+    log.info({ chatId, messageId, photoUrl }, 'mock replace photo');
   }
 }
 
@@ -72,6 +82,28 @@ class TelegramBotSender implements StorefrontSender {
       const detail = await res.text().catch(() => '');
       throw new Error(`Telegram sendMessage failed (${res.status}): ${detail}`);
     }
+  }
+
+  async removeKeyboard(chatId: string, messageId: number): Promise<void> {
+    const token = await this.resolveToken();
+    await fetch(`https://api.telegram.org/bot${token}/editMessageReplyMarkup`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } }),
+    }).catch((err) => log.warn({ chatId, messageId, err }, 'removeKeyboard failed — non-fatal'));
+  }
+
+  async replacePhoto(chatId: string, messageId: number, photoUrl: string): Promise<void> {
+    const token = await this.resolveToken();
+    await fetch(`https://api.telegram.org/bot${token}/editMessageMedia`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        media: { type: 'photo', media: photoUrl },
+      }),
+    }).catch((err) => log.warn({ chatId, messageId, photoUrl, err }, 'replacePhoto failed — non-fatal'));
   }
 }
 

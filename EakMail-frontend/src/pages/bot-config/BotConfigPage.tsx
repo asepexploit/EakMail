@@ -28,6 +28,7 @@ interface Draft {
   logoUrl: string;
   startPhotoUrl: string;
   csContactUrl: string;
+  topupSuccessImageUrl: string;
   supportContact: string;
   menu: BotMenuButton[];
   texts: Record<LanguageType, Record<string, string>>;
@@ -40,6 +41,7 @@ function toDraft(config: BotConfigDto): Draft {
     logoUrl: config.logoUrl ?? '',
     startPhotoUrl: config.startPhotoUrl ?? '',
     csContactUrl: config.csContactUrl ?? '',
+    topupSuccessImageUrl: config.topupSuccessImageUrl ?? '',
     supportContact: config.texts[DEFAULT_LANGUAGE]?.supportContact ?? '',
     menu: config.menu,
     texts: {
@@ -80,6 +82,7 @@ export function BotConfigPage() {
       logoUrl: draft.logoUrl || null,
       startPhotoUrl: draft.startPhotoUrl || null,
       csContactUrl: draft.csContactUrl || null,
+      topupSuccessImageUrl: draft.topupSuccessImageUrl || null,
       menu: draft.menu,
       texts: draft.texts,
     };
@@ -132,6 +135,13 @@ export function BotConfigPage() {
                       mono
                       placeholder="https://t.me/username_cs"
                       onChange={(e) => setDraft({ ...draft, csContactUrl: e.target.value })}
+                    />
+                    <Input
+                      label="Gambar Sukses Topup (URL — muncul menggantikan QR setelah pembayaran berhasil, opsional)"
+                      value={draft.topupSuccessImageUrl}
+                      mono
+                      placeholder="https://example.com/topup-success.jpg"
+                      onChange={(e) => setDraft({ ...draft, topupSuccessImageUrl: e.target.value })}
                     />
                     <Input
                       label={featureStrings.botConfig.supportContact}

@@ -11,6 +11,7 @@ import { PaymentMethod, type Language } from '@eakmail/shared-types';
 import { getQueues, QueueName } from '../../queue/queues.js';
 import { t } from '../../telegram/bot/i18n/index.js';
 import { MessageKey } from '../../telegram/bot/i18n/keys.js';
+import { getTopupMsg, clearTopupMsg } from '../../telegram/bot/user-state.js';
 
 const log = logger.child({ module: 'topup-service' });
 
@@ -84,20 +85,29 @@ export async function settleTopupByOrderId(pakasirOrderId: string): Promise<void
   await balanceService.topup(topup.customerId, topup.amount, `Topup via QRIS (${topupId})`);
   log.info({ topupId, customerId: topup.customerId, amount: topup.amount }, 'topup settled — balance credited');
 
-  void sendTopupSuccessNotification(topup.customerId, topup.amount, topupId);
+  void sendTopupSuccessNotification(topup.customerId, topup.amount, topupId, topup.id);
 }
 
 async function sendTopupSuccessNotification(
   customerId: string,
   amount: number,
   topupId: string,
+  topupRecordId: string,
 ): Promise<void> {
   try {
-    const customer = await prisma.customer.findUnique({
-      where: { id: customerId },
-      select: { telegramId: true, language: true, balance: true },
-    });
+    const [customer, botConfig, msgLocation] = await Promise.all([
+      prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { telegramId: true, language: true, balance: true },
+      }),
+      prisma.botConfig.findFirst({ select: { topupSuccessImageUrl: true } }),
+      getTopupMsg(topupRecordId),
+    ]);
     if (!customer) return;
+
+    // Clear the Redis key now that we've read it.
+    if (msgLocation) void clearTopupMsg(topupRecordId);
+
     const lang = (customer.language as Language) ?? 'id';
     const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
     const text = t(MessageKey.TOPUP_SUCCESS, lang, {
@@ -106,7 +116,13 @@ async function sendTopupSuccessNotification(
     });
     await getQueues()[QueueName.NOTIFICATIONS].add(
       'topup-success',
-      { customerTelegramId: customer.telegramId, text },
+      {
+        customerTelegramId: customer.telegramId,
+        text,
+        editChatId: msgLocation?.chatId,
+        editMessageId: msgLocation?.messageId,
+        editSuccessImageUrl: botConfig?.topupSuccessImageUrl ?? null,
+      },
       { jobId: `topup-success-${topupId}`, attempts: 3 },
     );
   } catch (err) {

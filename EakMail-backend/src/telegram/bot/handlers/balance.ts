@@ -14,7 +14,7 @@ import { formatRupiah, formatExpiry } from '../format.js';
 import { generateQrPng } from '../qr.js';
 import { createTopup, cancelTopup, MIN_TOPUP, MAX_TOPUP } from '../../../modules/payments/topup.service.js';
 import { logger } from '../../../lib/logger.js';
-import { setAwaitingTopup, clearAwaitingTopup } from '../user-state.js';
+import { setAwaitingTopup, clearAwaitingTopup, setTopupMsg } from '../user-state.js';
 
 const log = logger.child({ module: 'bot-balance' });
 
@@ -161,15 +161,26 @@ async function processTopup(
 
     if (result.qrString) {
       const qrPng = await generateQrPng(result.qrString);
-      await ctx.replyWithPhoto(
+      const sent = await ctx.replyWithPhoto(
         { source: qrPng, filename: 'topup_qris.png' },
         { caption, parse_mode: 'Markdown', ...cancelKeyboard },
       );
+      // Store message location so the settle flow can remove the button later.
+      const chatId = sent.chat.id;
+      const messageId = sent.message_id;
+      if (chatId && messageId) {
+        void setTopupMsg(result.topupId, chatId, messageId);
+      }
     } else if (result.paymentUrl) {
-      await ctx.reply(
+      const sent = await ctx.reply(
         caption + `\n\n[Buka link pembayaran](${result.paymentUrl})`,
         { parse_mode: 'Markdown', ...cancelKeyboard },
       );
+      const chatId = sent.chat.id;
+      const messageId = sent.message_id;
+      if (chatId && messageId) {
+        void setTopupMsg(result.topupId, chatId, messageId);
+      }
     }
 
     log.info({ customerId: bot.customer.id, amount, topupId: result.topupId }, 'topup initiated');

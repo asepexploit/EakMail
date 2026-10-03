@@ -36,6 +36,11 @@ export interface PaymentPollJob {
 export interface NotificationJob {
   customerTelegramId: string;
   text: string;
+  /** When set, the worker will also edit this message to remove its inline keyboard. */
+  editChatId?: string;
+  editMessageId?: number;
+  /** When set, the worker will also replace the edited message's photo with this URL. */
+  editSuccessImageUrl?: string | null;
 }
 
 export interface PromotionJob {
