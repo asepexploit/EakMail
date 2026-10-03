@@ -207,22 +207,10 @@ export function ProductDrawer({ open, onClose, product, onSubmit, isSubmitting }
           value={form.description ?? ''}
           onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
         />
-        <div className="space-y-1">
-          <Textarea
-            label="Template Pesan Pengiriman (opsional)"
-            value={form.deliveryTemplate ?? ''}
-            rows={5}
-            mono
-            placeholder={'🎉 Pesananmu sudah dikirim!\n\n📦 {{payload}}\n\n🆔 `{{orderId}}`'}
-            onChange={(e) => setForm((prev) => ({ ...prev, deliveryTemplate: e.target.value || null }))}
-          />
-          <p className="text-[11px] text-text-muted">
-            Jika diisi, pesan ini <strong>menggantikan seluruh notifikasi pengiriman</strong> ke pelanggan.
-            Variabel: <code className="rounded bg-surface-2 px-1">{'{{payload}}'}</code>{' '}
-            <code className="rounded bg-surface-2 px-1">{'{{orderId}}'}</code>{' '}
-            <code className="rounded bg-surface-2 px-1">{'{{quantity}}'}</code>
-          </p>
-        </div>
+        <DeliveryTemplateField
+          value={form.deliveryTemplate}
+          onChange={(v) => setForm((prev) => ({ ...prev, deliveryTemplate: v }))}
+        />
         <Input
           label={featureStrings.products.imageUrl}
           value={form.imageUrl ?? ''}
@@ -318,5 +306,96 @@ export function ProductDrawer({ open, onClose, product, onSubmit, isSubmitting }
         </div>
       </div>
     </Drawer>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Delivery template sub-field with preset picker
+// ---------------------------------------------------------------------------
+
+const DELIVERY_PRESETS: { label: string; body: string }[] = [
+  {
+    label: '1 · Minimalis',
+    body: '{{payload}}',
+  },
+  {
+    label: '2 · Simpel',
+    body: '✅ Pesananmu sudah dikirim!\n\n{{payload}}\n\n🆔 `{{orderId}}`',
+  },
+  {
+    label: '3 · Standard',
+    body: '🎉 *Pesanan Berhasil Dikirim!*\n\n📦 Berikut produkmu:\n\n{{payload}}\n\n──────────────\n🆔 `{{orderId}}`\nSimpan sebagai bukti ya!',
+  },
+  {
+    label: '4 · Casual',
+    body: 'Hei! Produkmu udah siap nih 🚀\n\n{{payload}}\n\n🆔 `{{orderId}}` · Terima kasih! ❤️',
+  },
+  {
+    label: '5 · Lengkap',
+    body: '🎉 *Pesanan Berhasil Dikirim!*\n\nHei! Produk digitalmu sudah siap nih 🚀\n\n📦 *Berikut produkmu:*\n\n{{payload}}\n\n──────────────────────\n🆔 ID Pesanan: `{{orderId}}`\nSimpan pesan ini sebagai bukti ya!\n──────────────────────\n\nTerima kasih sudah belanja! ❤️',
+  },
+];
+
+function DeliveryTemplateField({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  const active = value ?? '';
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium text-text">Template Pesan Pengiriman <span className="text-text-muted font-normal">(opsional)</span></p>
+
+      {/* Preset buttons */}
+      <div className="flex flex-wrap gap-1.5">
+        {DELIVERY_PRESETS.map((p) => (
+          <button
+            key={p.label}
+            type="button"
+            onClick={() => onChange(p.body)}
+            className={[
+              'rounded-md border px-2.5 py-1 text-[11px] font-medium transition',
+              active === p.body
+                ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
+                : 'border-border text-text-muted hover:border-brand-accent/50 hover:text-text',
+            ].join(' ')}
+          >
+            {p.label}
+          </button>
+        ))}
+        {active && !DELIVERY_PRESETS.some((p) => p.body === active) && (
+          <span className="rounded-md border border-dashed border-brand-accent px-2.5 py-1 text-[11px] text-brand-accent">
+            ✏️ Custom
+          </span>
+        )}
+        {active && (
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            className="rounded-md border border-border px-2.5 py-1 text-[11px] text-text-muted hover:text-danger hover:border-danger/50 transition"
+          >
+            Hapus template
+          </button>
+        )}
+      </div>
+
+      {/* Textarea — always shown so user can edit/custom */}
+      <Textarea
+        value={active}
+        rows={5}
+        mono
+        placeholder={'Pilih preset di atas atau ketik template sendiri…'}
+        onChange={(e) => onChange(e.target.value || null)}
+      />
+      <p className="text-[11px] text-text-muted">
+        Jika diisi, pesan ini <strong>menggantikan seluruh notifikasi pengiriman</strong>.
+        {' '}Variabel:{' '}
+        <code className="rounded bg-surface-2 px-1">{'{{payload}}'}</code>{' '}
+        <code className="rounded bg-surface-2 px-1">{'{{orderId}}'}</code>{' '}
+        <code className="rounded bg-surface-2 px-1">{'{{quantity}}'}</code>
+      </p>
+    </div>
   );
 }
