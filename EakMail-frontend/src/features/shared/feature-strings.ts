@@ -12,6 +12,10 @@ export const featureStrings = {
     ordersToday: 'Pesanan Hari Ini',
     successRate: 'Tingkat Keberhasilan',
     revenue: 'Pendapatan Hari Ini',
+    revenueTotal: 'Total Pendapatan',
+    totalOrders: 'Total Pesanan',
+    pendingOrders: 'Menunggu Bayar',
+    totalCustomers: 'Total Pelanggan',
     activeExecutions: 'Eksekusi Aktif',
     healthyAccounts: 'Akun Sehat',
     queueDepth: 'Antrian',
@@ -20,7 +24,8 @@ export const featureStrings = {
     statusDistribution: 'Distribusi Status Pesanan',
     recentOrders: 'Pesanan Terbaru',
     liveExecutions: 'Eksekusi Langsung',
-    recentFailures: 'Kegagalan Terbaru',
+    recentFailures: 'Pesanan Gagal',
+    topProducts: 'Produk Terlaris',
   },
 
   suppliers: {
