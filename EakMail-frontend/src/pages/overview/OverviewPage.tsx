@@ -44,64 +44,78 @@ export function OverviewPage() {
       <QueryBoundary isLoading={isLoading} isError={isError} onRetry={refetch}>
         {data && (
           <>
-            {/* ── Stat cards ── */}
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
-              <StatCard
-                label={featureStrings.overview.ordersToday}
-                value={formatNumber(data.ordersToday)}
-                delta={calcDelta(data.ordersToday, data.ordersYesterday)}
-                deltaLabel={
-                  data.ordersYesterday > 0
-                    ? `${data.ordersYesterday} kemarin`
-                    : undefined
-                }
-                icon={<ListOrdered className="h-4 w-4" />}
-              />
-              <StatCard
-                label={featureStrings.overview.revenue}
-                value={formatRupiah(data.revenueToday)}
-                delta={calcDelta(data.revenueToday, data.revenueYesterday)}
-                icon={<Wallet className="h-4 w-4" />}
-              />
-              <StatCard
-                label={featureStrings.overview.successRate}
-                value={formatPercent(data.successRatePercent)}
-                icon={<CheckCircle2 className="h-4 w-4" />}
-              />
-              <StatCard
-                label={featureStrings.overview.pendingOrders}
-                value={formatNumber(data.pendingCount)}
-                icon={<Clock className="h-4 w-4" />}
-              />
-              <StatCard
-                label={featureStrings.overview.totalOrders}
-                value={formatNumber(data.totalOrders)}
-                icon={<Package className="h-4 w-4" />}
-              />
-              <StatCard
-                label={featureStrings.overview.revenueTotal}
-                value={formatRupiah(data.revenueTotal)}
-                icon={<TrendingUp className="h-4 w-4" />}
-              />
-              <StatCard
-                label={featureStrings.overview.totalCustomers}
-                value={formatNumber(data.totalCustomers)}
-                icon={<Users className="h-4 w-4" />}
-              />
-              <StatCard
-                label={featureStrings.overview.healthyAccounts}
-                value={`${data.healthyAccounts}/${data.totalAccounts}`}
-                icon={<ServerCog className="h-4 w-4" />}
-                delta={data.totalAccounts > 0
-                  ? (data.healthyAccounts / data.totalAccounts) * 100 - 100
-                  : undefined}
-              />
-              <StatCard
-                label={featureStrings.overview.totalTopup}
-                value={formatRupiah(data.totalTopupPaid)}
-                icon={<ArrowDownToLine className="h-4 w-4" />}
-                deltaLabel={data.totalTopupCount > 0 ? `${formatNumber(data.totalTopupCount)} transaksi` : undefined}
-              />
+            {/* ── Stat cards — Hari Ini ── */}
+            <div>
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                Hari Ini
+              </p>
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <StatCard
+                  label={featureStrings.overview.ordersToday}
+                  value={formatNumber(data.ordersToday)}
+                  delta={calcDelta(data.ordersToday, data.ordersYesterday)}
+                  deltaLabel={
+                    data.ordersYesterday > 0
+                      ? `${data.ordersYesterday} kemarin`
+                      : undefined
+                  }
+                  icon={<ListOrdered className="h-4 w-4" />}
+                />
+                <StatCard
+                  label={featureStrings.overview.revenue}
+                  value={formatRupiah(data.revenueToday)}
+                  delta={calcDelta(data.revenueToday, data.revenueYesterday)}
+                  icon={<Wallet className="h-4 w-4" />}
+                />
+                <StatCard
+                  label={featureStrings.overview.successRate}
+                  value={formatPercent(data.successRatePercent)}
+                  icon={<CheckCircle2 className="h-4 w-4" />}
+                />
+                <StatCard
+                  label={featureStrings.overview.pendingOrders}
+                  value={formatNumber(data.pendingCount)}
+                  icon={<Clock className="h-4 w-4" />}
+                />
+              </div>
+            </div>
+
+            {/* ── Stat cards — Keseluruhan ── */}
+            <div>
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                Keseluruhan
+              </p>
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+                <StatCard
+                  label={featureStrings.overview.totalOrders}
+                  value={formatNumber(data.totalOrders)}
+                  icon={<Package className="h-4 w-4" />}
+                />
+                <StatCard
+                  label={featureStrings.overview.revenueTotal}
+                  value={formatRupiah(data.revenueTotal)}
+                  icon={<TrendingUp className="h-4 w-4" />}
+                />
+                <StatCard
+                  label={featureStrings.overview.totalCustomers}
+                  value={formatNumber(data.totalCustomers)}
+                  icon={<Users className="h-4 w-4" />}
+                />
+                <StatCard
+                  label={featureStrings.overview.totalTopup}
+                  value={formatRupiah(data.totalTopupPaid)}
+                  icon={<ArrowDownToLine className="h-4 w-4" />}
+                  deltaLabel={data.totalTopupCount > 0 ? `${formatNumber(data.totalTopupCount)} transaksi` : undefined}
+                />
+                <StatCard
+                  label={featureStrings.overview.healthyAccounts}
+                  value={`${data.healthyAccounts}/${data.totalAccounts}`}
+                  icon={<ServerCog className="h-4 w-4" />}
+                  delta={data.totalAccounts > 0
+                    ? (data.healthyAccounts / data.totalAccounts) * 100 - 100
+                    : undefined}
+                />
+              </div>
             </div>
 
             {/* ── Charts ── */}
