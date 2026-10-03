@@ -106,7 +106,7 @@ export function OrdersPage() {
       sortValue: (row) => row.amount,
       render: (row) => (
         <span className="whitespace-nowrap tabular-nums font-semibold text-text">
-          Rp {formatRupiah(row.amount)}
+          {formatRupiah(row.amount)}
         </span>
       ),
     },

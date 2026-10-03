@@ -83,7 +83,7 @@ export function PaymentsPage() {
       sortValue: (row) => row.amount,
       render: (row) => (
         <span className="tabular-nums font-semibold text-text">
-          Rp {formatRupiah(row.amount)}
+          {formatRupiah(row.amount)}
         </span>
       ),
     },
@@ -95,7 +95,7 @@ export function PaymentsPage() {
         row.fee === null ? (
           <span className="text-text-muted">-</span>
         ) : (
-          <span className="tabular-nums text-text-muted">Rp {formatRupiah(row.fee)}</span>
+          <span className="tabular-nums text-text-muted">{formatRupiah(row.fee)}</span>
         ),
     },
     {
