@@ -135,57 +135,60 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
 
     // One connection per account run; GetDialogs is called once inside to populate
     // the entity cache so numeric chatIds (no public username) resolve correctly.
-    const batchResults = await sendPromotionMessagesBatch({
+    // onResult writes each log to DB immediately so Riwayat Kirim updates in real-time
+    // instead of waiting for the full batch (which can take minutes with delays).
+    let hitFloodWait = false;
+    await sendPromotionMessagesBatch({
       sessionEnc: account.sessionEnc!,
       targets: targetGroups,
       message: campaign.message,
       imageUrl: campaign.imageUrl,
       delayMs: delay,
       force: job.data.force,
-    });
+      onResult: async (target, result) => {
+        // Feedback loop: mark write-forbidden / banned groups READ_ONLY for auto-leave
+        if (result.errorType === 'WRITE_FORBIDDEN' || result.errorType === 'BANNED') {
+          void monitoredGroupRepository.markReadOnlyByTarget(account.id, target).catch(() => undefined);
+        }
 
-    for (const { target, result } of batchResults) {
-      // Feedback loop: write-forbidden / banned groups → mark READ_ONLY so the
-      // periodic leaveReadOnlyGroupsBulk auto-leaves them on next sync cycle.
-      if (result.errorType === 'WRITE_FORBIDDEN' || result.errorType === 'BANNED') {
-        void monitoredGroupRepository.markReadOnlyByTarget(account.id, target).catch(() => undefined);
-      }
+        if (result.floodWaitSeconds) {
+          hitFloodWait = true;
+          await promotionAccountRepository.update(account.id, {
+            status: 'FLOOD_WAIT',
+            floodUntil: new Date(Date.now() + result.floodWaitSeconds * 1000),
+          });
+          await promotionLogRepository.create({
+            campaign: { connect: { id: campaignId } },
+            account: { connect: { id: account.id } },
+            targetGroup: target,
+            status: 'FLOOD_WAIT',
+            errorMessage: result.error,
+          });
+          return;
+        }
 
-      if (result.floodWaitSeconds) {
-        await promotionAccountRepository.update(account.id, {
-          status: 'FLOOD_WAIT',
-          floodUntil: new Date(Date.now() + result.floodWaitSeconds * 1000),
-        });
+        const logStatus = result.ok
+          ? 'SENT'
+          : result.errorType === 'SKIP'
+            ? 'SKIPPED'
+            : 'FAILED';
+
+        const logMessage = result.ok
+          ? null
+          : result.errorType === 'SKIP'
+            ? 'Pesan terakhir masih milik akun ini — menunggu balasan dulu'
+            : (result.error ?? null);
+
         await promotionLogRepository.create({
           campaign: { connect: { id: campaignId } },
           account: { connect: { id: account.id } },
           targetGroup: target,
-          status: 'FLOOD_WAIT',
-          errorMessage: result.error,
+          status: logStatus,
+          errorMessage: logMessage,
         });
-        break;
-      }
-
-      const logStatus = result.ok
-        ? 'SENT'
-        : result.errorType === 'SKIP'
-          ? 'SKIPPED'
-          : 'FAILED';
-
-      const logMessage = result.ok
-        ? null
-        : result.errorType === 'SKIP'
-          ? 'Pesan terakhir masih milik akun ini — menunggu balasan dulu'
-          : (result.error ?? null);
-
-      await promotionLogRepository.create({
-        campaign: { connect: { id: campaignId } },
-        account: { connect: { id: account.id } },
-        targetGroup: target,
-        status: logStatus,
-        errorMessage: logMessage,
-      });
-    }
+      },
+    });
+    void hitFloodWait; // flood wait is already handled inside onResult
   }
 
   log.info({ campaignId }, 'promotion run completed');

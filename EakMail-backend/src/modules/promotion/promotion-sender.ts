@@ -25,6 +25,8 @@ export interface BatchSendParams {
   delayMs?: number;
   /** When true, bypass the last-message check (manual trigger). */
   force?: boolean;
+  /** Called immediately after each group send completes — use to write logs incrementally. */
+  onResult?: (target: string, result: SendResult) => Promise<void>;
 }
 
 export interface BatchSendResult {
@@ -77,6 +79,11 @@ export async function sendPromotionMessagesBatch(params: BatchSendParams): Promi
       const target = params.targets[i]!;
       const result = await sendOne(client, Api, target, params.message, params.imageUrl ?? null, myUserId, params.force);
       results.push({ target, result });
+
+      // Write log immediately so Riwayat Kirim updates in real-time
+      if (params.onResult) {
+        await params.onResult(target, result).catch(() => undefined);
+      }
 
       // Account-level flood wait — stop all further sends from this account
       if (result.floodWaitSeconds) break;
@@ -180,7 +187,7 @@ async function sendOne(
       log.warn({ target, seconds }, 'flood wait hit');
       return { ok: false, error: msg, errorType: 'FLOOD_WAIT', floodWaitSeconds: seconds };
     }
-    if (msg.includes('CHAT_WRITE_FORBIDDEN')) {
+    if (msg.includes('CHAT_WRITE_FORBIDDEN') || msg.includes('CHAT_SEND_PLAIN_FORBIDDEN')) {
       log.info({ target }, 'write forbidden — will mark READ_ONLY');
       return { ok: false, error: msg, errorType: 'WRITE_FORBIDDEN' };
     }
