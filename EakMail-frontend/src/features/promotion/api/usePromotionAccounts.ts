@@ -79,10 +79,28 @@ export function useJoinAccountGroups(accountId: string) {
   });
 }
 
+export interface TelegramProfileInfo {
+  firstName: string;
+  lastName: string;
+  username: string | null;
+  about: string | null;
+}
+
+export function useAccountProfile(accountId: string | null) {
+  return useQuery<TelegramProfileInfo>({
+    queryKey: ['promotion-account-profile', accountId],
+    queryFn: () => http.get(`/promotion/accounts/${accountId}/profile`),
+    enabled: !!accountId,
+    staleTime: 30_000,
+    retry: false,
+  });
+}
+
 export interface UpdateProfileInput {
   firstName?: string;
   lastName?: string;
   about?: string;
+  username?: string;
   photoUrl?: string | null;
 }
 

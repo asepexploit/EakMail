@@ -12,7 +12,7 @@ import { joinGroups } from '../../modules/promotion/promotion-joiner.js';
 import { fetchAccountGroups } from '../../modules/promotion/promotion-groups.js';
 import { startMonitor, stopMonitor, isMonitorRunning } from '../../modules/promotion/auto-join-monitor.js';
 import { checkAndLeaveIfReadOnly } from '../../modules/monitor/monitor-groups.service.js';
-import { updateTelegramProfile } from '../../modules/promotion/promotion-profile.js';
+import { getTelegramProfile, updateTelegramProfile } from '../../modules/promotion/promotion-profile.js';
 
 const idParam = z.object({ id: z.string().min(1) });
 
@@ -87,13 +87,23 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
-  /** PATCH /accounts/:id/profile — update Telegram profile (name, bio, photo). */
+  /** GET /accounts/:id/profile — fetch current Telegram profile info. */
+  app.get('/accounts/:id/profile', async (req) => {
+    const { id } = idParam.parse(req.params);
+    const account = await promotionAccountRepository.findById(id);
+    if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
+    if (!account.sessionEnc) { const e = new Error('No active session'); (e as any).statusCode = 400; throw e; }
+    return getTelegramProfile(account.sessionEnc);
+  });
+
+  /** PATCH /accounts/:id/profile — update Telegram profile (name, username, bio, photo). */
   app.patch('/accounts/:id/profile', async (req) => {
     const { id } = idParam.parse(req.params);
     const body = z.object({
       firstName: z.string().min(1).max(64).optional(),
       lastName: z.string().max(64).optional(),
       about: z.string().max(70).optional(),
+      username: z.string().max(32).optional(),
       photoUrl: z.string().url().nullable().optional(),
     }).parse(req.body);
 
