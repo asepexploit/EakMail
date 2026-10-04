@@ -335,7 +335,10 @@ export async function handleQtyMessage(ctx: Context): Promise<boolean> {
       available = await stockRepository.countAvailable(product.id);
     }
     if (available < quantity) {
-      await ctx.reply(bot.tr(MessageKey.ORDER_OUT_OF_STOCK));
+      const msg = available === 0
+        ? bot.tr(MessageKey.ORDER_OUT_OF_STOCK)
+        : bot.tr(MessageKey.ORDER_INSUFFICIENT_STOCK, { available });
+      await ctx.reply(msg);
       return true;
     }
   }

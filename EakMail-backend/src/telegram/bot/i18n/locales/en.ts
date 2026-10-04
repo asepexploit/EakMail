@@ -38,6 +38,7 @@ const en: Catalog = {
   [MessageKey.ORDER_PRODUCT_NOT_FOUND]: 'Product not found. See the list with /catalog.',
   [MessageKey.ORDER_PRODUCT_INACTIVE]: 'Sorry, this product is currently unavailable.',
   [MessageKey.ORDER_OUT_OF_STOCK]: 'Sorry, this product is currently out of stock.',
+  [MessageKey.ORDER_INSUFFICIENT_STOCK]: '❌ Not enough stock. Only {{available}} item(s) available.',
   [MessageKey.ORDER_CREATED]:
     '✅ Order created!\n\nProduct: {{productName}}\nAmount: Rp{{amount}}\nOrder ID: {{orderId}}',
   [MessageKey.ORDER_CHOOSE_PAYMENT]: 'Please complete the payment below:',

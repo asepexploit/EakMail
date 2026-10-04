@@ -34,6 +34,7 @@ export const MessageKey = {
   ORDER_PRODUCT_NOT_FOUND: 'order.productNotFound',
   ORDER_PRODUCT_INACTIVE: 'order.productInactive',
   ORDER_OUT_OF_STOCK: 'order.outOfStock',
+  ORDER_INSUFFICIENT_STOCK: 'order.insufficientStock',
   ORDER_CREATED: 'order.created',
   ORDER_CHOOSE_PAYMENT: 'order.choosePayment',
   ORDER_DEMO_PAID: 'order.demoPaid',

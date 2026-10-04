@@ -38,6 +38,7 @@ const id: Catalog = {
   [MessageKey.ORDER_PRODUCT_NOT_FOUND]: 'Produk tidak ditemukan. Cek daftar dengan /catalog.',
   [MessageKey.ORDER_PRODUCT_INACTIVE]: 'Maaf, produk ini sedang tidak tersedia.',
   [MessageKey.ORDER_OUT_OF_STOCK]: 'Maaf, stok produk ini sedang habis.',
+  [MessageKey.ORDER_INSUFFICIENT_STOCK]: '❌ Stok tidak mencukupi. Tersedia hanya {{available}} item.',
   [MessageKey.ORDER_CREATED]:
     '✅ Pesanan dibuat!\n\nProduk: {{productName}}\nJumlah: Rp{{amount}}\nID Pesanan: {{orderId}}',
   [MessageKey.ORDER_CHOOSE_PAYMENT]: 'Silakan selesaikan pembayaran berikut:',

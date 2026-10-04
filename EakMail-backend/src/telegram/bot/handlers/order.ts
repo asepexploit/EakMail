@@ -118,7 +118,10 @@ export async function runOrderFlow(
 
   if (product.stockMode === StockMode.MANUAL) {
     if (product.stock < quantity) {
-      await sendMessage(ctx, bot.tr(MessageKey.ORDER_OUT_OF_STOCK));
+      const msg = product.stock === 0
+        ? bot.tr(MessageKey.ORDER_OUT_OF_STOCK)
+        : bot.tr(MessageKey.ORDER_INSUFFICIENT_STOCK, { available: product.stock });
+      await sendMessage(ctx, msg);
       return;
     }
   } else if (
@@ -129,7 +132,10 @@ export async function runOrderFlow(
     const { stockRepository } = await import('../../../modules/products/stock.repository.js');
     const available = await stockRepository.countAvailable(product.id);
     if (available < quantity) {
-      await sendMessage(ctx, bot.tr(MessageKey.ORDER_OUT_OF_STOCK));
+      const msg = available === 0
+        ? bot.tr(MessageKey.ORDER_OUT_OF_STOCK)
+        : bot.tr(MessageKey.ORDER_INSUFFICIENT_STOCK, { available });
+      await sendMessage(ctx, msg);
       return;
     }
   }
