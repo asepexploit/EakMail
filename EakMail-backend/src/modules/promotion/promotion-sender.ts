@@ -184,6 +184,12 @@ async function sendOne(
       log.info({ target }, 'write forbidden — will mark READ_ONLY');
       return { ok: false, error: msg, errorType: 'WRITE_FORBIDDEN' };
     }
+    // SlowModeWaitError — per-chat slow mode, not account-wide flood wait.
+    // Continue sending to other groups; just log this one as failed.
+    if (msg.includes('required before sending another message in this chat')) {
+      log.info({ target }, 'slow mode active in this chat — skipping group');
+      return { ok: false, error: msg, errorType: 'OTHER' };
+    }
     if (msg.includes('USER_BANNED_IN_CHANNEL')) {
       log.info({ target }, 'banned in channel — will mark READ_ONLY');
       return { ok: false, error: msg, errorType: 'BANNED' };

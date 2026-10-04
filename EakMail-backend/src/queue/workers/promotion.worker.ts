@@ -43,16 +43,18 @@ export function buildPromotionWorker(deps: WorkerBuildDeps = {}): Worker<Promoti
 async function processPromotion(job: Job<PromotionJob>): Promise<void> {
   const { campaignId } = job.data;
 
-  // Prevent two jobs for the same campaign from executing simultaneously
-  if (runningCampaigns.has(campaignId)) {
-    log.info({ campaignId }, 'campaign already running — dropping concurrent job');
+  // Prevent two *scheduled* jobs for the same campaign from running simultaneously.
+  // Force-triggered jobs (manual "Kirim Sekarang") always bypass the lock so the
+  // user gets an immediate send even when a scheduled run is in progress.
+  if (!job.data.force && runningCampaigns.has(campaignId)) {
+    log.info({ campaignId }, 'campaign already running — dropping concurrent scheduled job');
     return;
   }
-  runningCampaigns.add(campaignId);
+  if (!job.data.force) runningCampaigns.add(campaignId);
   try {
     await runCampaign(job);
   } finally {
-    runningCampaigns.delete(campaignId);
+    if (!job.data.force) runningCampaigns.delete(campaignId);
   }
 }
 
