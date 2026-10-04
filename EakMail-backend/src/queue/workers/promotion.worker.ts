@@ -142,6 +142,7 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
     // onResult writes each log to DB immediately so Riwayat Kirim updates in real-time
     // instead of waiting for the full batch (which can take minutes with delays).
     let hitFloodWait = false;
+    try {
     await sendPromotionMessagesBatch({
       sessionEnc: account.sessionEnc!,
       targets,
@@ -196,6 +197,9 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
         });
       },
     });
+    } catch (err) {
+      log.error({ campaignId, accountId: account.id, err }, 'sendPromotionMessagesBatch failed for account');
+    }
     void hitFloodWait; // flood wait is already handled inside onResult
   }
 

@@ -82,7 +82,9 @@ export async function sendPromotionMessagesBatch(params: BatchSendParams): Promi
 
       // Write log immediately so Riwayat Kirim updates in real-time
       if (params.onResult) {
-        await params.onResult(target, result).catch(() => undefined);
+        await params.onResult(target, result).catch((err) => {
+          log.warn({ target, err }, 'onResult callback failed — DB log not written');
+        });
       }
 
       // Account-level flood wait — stop all further sends from this account
