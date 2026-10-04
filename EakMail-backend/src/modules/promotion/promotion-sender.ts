@@ -8,7 +8,7 @@ import { decrypt } from '../../lib/crypto.js';
 
 const log = logger.child({ module: 'promotion-sender' });
 
-export type SendErrorType = 'FLOOD_WAIT' | 'WRITE_FORBIDDEN' | 'BANNED' | 'NOT_FOUND' | 'OTHER';
+export type SendErrorType = 'FLOOD_WAIT' | 'WRITE_FORBIDDEN' | 'BANNED' | 'NOT_FOUND' | 'SKIP' | 'OTHER';
 
 export interface SendResult {
   ok: boolean;
@@ -60,10 +60,20 @@ export async function sendPromotionMessagesBatch(params: BatchSendParams): Promi
       // Non-fatal — entity cache may still work for groups already in the session.
     }
 
+    // Get our own user ID once — used to skip groups where our message is already last
+    let myUserId: string | null = null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const me: any = await client.getMe();
+      myUserId = String(me.id);
+    } catch {
+      // Non-fatal — last-message check will be skipped
+    }
+
     const results: BatchSendResult[] = [];
     for (let i = 0; i < params.targets.length; i++) {
       const target = params.targets[i]!;
-      const result = await sendOne(client, Api, target, params.message, params.imageUrl ?? null);
+      const result = await sendOne(client, Api, target, params.message, params.imageUrl ?? null, myUserId);
       results.push({ target, result });
 
       // Account-level flood wait — stop all further sends from this account
@@ -89,6 +99,7 @@ async function sendOne(
   target: string,
   message: string,
   imageUrl: string | null,
+  myUserId: string | null,
 ): Promise<SendResult> {
   try {
     // Invite links (t.me/+XXXX) are join links — they can't be used as send targets.
@@ -119,6 +130,33 @@ async function sendOne(
       const chat = resolved.chats[0];
       if (!chat) return { ok: false, error: `Cannot resolve @${username}`, errorType: 'NOT_FOUND' };
       peer = chat;
+    }
+
+    // Skip if our message is already the last one in this group.
+    // Wait until someone else posts before sending again — prevents spam.
+    if (myUserId) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const history: any = await client.invoke(new Api.messages.GetHistory({
+          peer,
+          limit: 1,
+          offsetId: 0,
+          offsetDate: 0,
+          addOffset: 0,
+          maxId: 0,
+          minId: 0,
+          hash: BigInt(0),
+        }));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const lastMsg: any = history?.messages?.[0];
+        const senderId = lastMsg?.senderId ?? lastMsg?.fromId?.userId;
+        if (senderId && String(senderId) === myUserId) {
+          log.info({ target }, 'last message is already ours — skipping to avoid spam');
+          return { ok: false, error: 'Last message already ours — skipping', errorType: 'SKIP' };
+        }
+      } catch {
+        // Best-effort — if check fails, proceed with send
+      }
     }
 
     if (imageUrl) {

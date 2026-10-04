@@ -25,6 +25,10 @@ import type { WorkerBuildDeps } from './types.js';
 
 const log = logger.child({ module: 'promotion-worker' });
 
+// In-memory lock: prevent the same campaign from running concurrently within this process
+// (concurrency:2 means two different campaigns can run side-by-side, but not the same one twice).
+const runningCampaigns = new Set<string>();
+
 export function buildPromotionWorker(deps: WorkerBuildDeps = {}): Worker<PromotionJob> {
   return new Worker<PromotionJob>(
     QueueName.PROMOTION,
@@ -37,6 +41,22 @@ export function buildPromotionWorker(deps: WorkerBuildDeps = {}): Worker<Promoti
 }
 
 async function processPromotion(job: Job<PromotionJob>): Promise<void> {
+  const { campaignId } = job.data;
+
+  // Prevent two jobs for the same campaign from executing simultaneously
+  if (runningCampaigns.has(campaignId)) {
+    log.info({ campaignId }, 'campaign already running — dropping concurrent job');
+    return;
+  }
+  runningCampaigns.add(campaignId);
+  try {
+    await runCampaign(job);
+  } finally {
+    runningCampaigns.delete(campaignId);
+  }
+}
+
+async function runCampaign(job: Job<PromotionJob>): Promise<void> {
   const { campaignId } = job.data;
 
   const campaign = await promotionCampaignRepository.findById(campaignId);
@@ -142,6 +162,9 @@ async function processPromotion(job: Job<PromotionJob>): Promise<void> {
         });
         break;
       }
+
+      // SKIP = our message is still last in this group; no log entry needed
+      if (result.errorType === 'SKIP') continue;
 
       await promotionLogRepository.create({
         campaign: { connect: { id: campaignId } },
