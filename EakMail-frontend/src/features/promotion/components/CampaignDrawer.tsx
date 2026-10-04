@@ -385,23 +385,42 @@ export function CampaignDrawer({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Jam aktif mulai (0–23)"
-            type="number"
-            min={0}
-            max={23}
-            value={form.activeHoursStart}
-            onChange={(e) => setForm((p) => ({ ...p, activeHoursStart: Number(e.target.value) }))}
-          />
-          <Input
-            label="Jam aktif selesai (0–23)"
-            type="number"
-            min={0}
-            max={23}
-            value={form.activeHoursEnd}
-            onChange={(e) => setForm((p) => ({ ...p, activeHoursEnd: Number(e.target.value) }))}
-          />
+        <div className="space-y-2">
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-text">
+            <input
+              type="checkbox"
+              className="accent-brand"
+              checked={form.activeHoursStart === 0 && form.activeHoursEnd === 23}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setForm((p) => ({ ...p, activeHoursStart: 0, activeHoursEnd: 23 }));
+                } else {
+                  setForm((p) => ({ ...p, activeHoursStart: 8, activeHoursEnd: 22 }));
+                }
+              }}
+            />
+            <span className="font-medium">24 jam penuh (kirim kapan saja)</span>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Jam aktif mulai (0–23)"
+              type="number"
+              min={0}
+              max={23}
+              value={form.activeHoursStart}
+              disabled={form.activeHoursStart === 0 && form.activeHoursEnd === 23}
+              onChange={(e) => setForm((p) => ({ ...p, activeHoursStart: Number(e.target.value) }))}
+            />
+            <Input
+              label="Jam aktif selesai (0–23)"
+              type="number"
+              min={0}
+              max={23}
+              value={form.activeHoursEnd}
+              disabled={form.activeHoursStart === 0 && form.activeHoursEnd === 23}
+              onChange={(e) => setForm((p) => ({ ...p, activeHoursEnd: Number(e.target.value) }))}
+            />
+          </div>
         </div>
 
         <div>

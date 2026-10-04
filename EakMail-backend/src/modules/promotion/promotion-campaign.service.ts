@@ -77,12 +77,13 @@ export const promotionCampaignService = {
       ...rest,
       targetGroups: input.targetGroups,
       activeDays: input.activeDays,
-      status: 'PAUSED',
+      status: 'ACTIVE',
     });
     if (accountIds.length > 0) {
       await repo.setAccountLinks(campaign.id, accountIds);
     }
     const fresh = await repo.findById(campaign.id);
+    await scheduleJob(fresh!);
     return toDto(fresh!);
   },
 
