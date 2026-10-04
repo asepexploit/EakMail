@@ -239,6 +239,12 @@ function ProductStockPanel({ productId, productName, stockMode, deliveryTemplate
     onError: () => toast.error('Gagal hapus stok'),
   });
 
+  const deleteItemMutation = useMutation({
+    mutationFn: (itemId: string) => api.products.deleteStockItem(productId, itemId),
+    onSuccess: () => void client.invalidateQueries({ queryKey: ['stock', productId] }),
+    onError: () => toast.error('Gagal hapus item'),
+  });
+
   const items: StockItem[] = stockQuery.data?.items ?? [];
   const available = stockQuery.data?.available ?? 0;
   const total = items.length;
@@ -395,6 +401,7 @@ function ProductStockPanel({ productId, productName, stockMode, deliveryTemplate
                               </>
                             )}
                             <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">Status</th>
+                            {tab === 'available' && <th className="px-3 py-2 w-8" />}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -430,6 +437,19 @@ function ProductStockPanel({ productId, productName, stockMode, deliveryTemplate
                                   </span>
                                 )}
                               </td>
+                              {tab === 'available' && (
+                                <td className="px-2 py-2">
+                                  <button
+                                    type="button"
+                                    title="Hapus item ini"
+                                    disabled={deleteItemMutation.isPending && deleteItemMutation.variables === item.id}
+                                    onClick={() => deleteItemMutation.mutate(item.id)}
+                                    className="flex items-center justify-center rounded p-1 text-text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover/row:opacity-100 disabled:opacity-40 [tr:hover_&]:opacity-100"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>

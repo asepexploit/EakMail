@@ -135,6 +135,8 @@ export const api = {
       http.get<{ items: import('@eakmail/shared-types').StockItemDto[]; available: number; total: number }>(`/products/${id}/stock`, { signal }),
     addStock: (id: string, items: string[]) =>
       http.post<{ added: number }>(`/products/${id}/stock`, { items }),
+    deleteStockItem: (id: string, itemId: string) =>
+      http.delete<{ ok: boolean }>(`/products/${id}/stock/${itemId}`),
     clearStock: (id: string) =>
       http.delete<{ cleared: number }>(`/products/${id}/stock`),
     updateDeliveryTemplate: (id: string, deliveryTemplate: string | null) =>

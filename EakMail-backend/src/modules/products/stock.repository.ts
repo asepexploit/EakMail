@@ -90,6 +90,14 @@ export const stockRepository = {
     }));
   },
 
+  /** Delete a single unused item by id. Returns false if not found or already sold. */
+  async deleteItem(productId: string, itemId: string): Promise<boolean> {
+    const result = await prisma.stockItem.deleteMany({
+      where: { id: itemId, productId, usedAt: null },
+    });
+    return result.count > 0;
+  },
+
   /** Delete unused items for a product (bulk clear). */
   async clearUnused(productId: string): Promise<number> {
     const result = await prisma.stockItem.deleteMany({

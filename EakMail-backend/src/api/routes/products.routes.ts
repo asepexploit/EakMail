@@ -104,6 +104,21 @@ export async function productsRoutes(app: FastifyInstance): Promise<void> {
     return reply.code(201).send({ added });
   });
 
+  /** DELETE /api/products/:id/stock/:itemId — delete a single unused stock item. */
+  app.delete('/:id/stock/:itemId', async (request, reply) => {
+    const { id, itemId } = parse(
+      z.object({ id: z.string().min(1), itemId: z.string().min(1) }),
+      request.params,
+    );
+    const deleted = await stockRepository.deleteItem(id, itemId);
+    if (!deleted) {
+      const e = new Error('Item not found or already sold');
+      (e as any).statusCode = 404;
+      throw e;
+    }
+    return reply.code(200).send({ ok: true });
+  });
+
   /** DELETE /api/products/:id/stock — clear unused stock items. */
   app.delete('/:id/stock', async (request, reply) => {
     const { id } = parse(idParamSchema, request.params);
