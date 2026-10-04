@@ -313,6 +313,15 @@ export async function handleQtyMessage(ctx: Context): Promise<boolean> {
     return true;
   }
 
+  // Validate against available stock for manual-stock products.
+  const { findById: findProductById } = await import('../../../modules/products/product.repository.js');
+  const { StockMode } = await import('@eakmail/shared-types');
+  const product = await findProductById(state.productId);
+  if (product && product.stockMode === StockMode.MANUAL && product.stock < quantity) {
+    await ctx.reply(bot.tr(MessageKey.ORDER_OUT_OF_STOCK));
+    return true;
+  }
+
   const { runOrderFlow } = await import('./order.js');
   await runOrderFlow(ctx, bot, state.productId, quantity, state.optionId);
   return true;
