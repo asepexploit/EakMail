@@ -101,14 +101,7 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
     return;
   }
 
-  const targetGroups = await resolveTargetGroups(
-    accountIds,
-    campaign.targetGroups as string[],
-  );
-  if (targetGroups.length === 0) {
-    log.warn({ campaignId }, 'no target groups resolved — skipping');
-    return;
-  }
+  const explicitTargets = campaign.targetGroups as string[];
   const sendMode = campaign.sendMode;
   const delay = campaign.delayBetweenGroupsSeconds * 1000;
 
@@ -133,6 +126,17 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
     const sessionString = await promotionAccountService.getSession(account.id);
     if (!sessionString) continue;
 
+    // Explicit targets → same list for every account (user-defined).
+    // Auto-detect (empty explicit) → each account sends only to its own monitored groups.
+    const targets = explicitTargets.length > 0
+      ? explicitTargets
+      : await resolveTargetGroups(account.id);
+
+    if (targets.length === 0) {
+      log.info({ campaignId, accountId: account.id }, 'no target groups for this account — skipping');
+      continue;
+    }
+
     // One connection per account run; GetDialogs is called once inside to populate
     // the entity cache so numeric chatIds (no public username) resolve correctly.
     // onResult writes each log to DB immediately so Riwayat Kirim updates in real-time
@@ -140,7 +144,7 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
     let hitFloodWait = false;
     await sendPromotionMessagesBatch({
       sessionEnc: account.sessionEnc!,
-      targets: targetGroups,
+      targets,
       message: campaign.message,
       imageUrl: campaign.imageUrl,
       delayMs: delay,
@@ -194,31 +198,12 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
   log.info({ campaignId }, 'promotion run completed');
 }
 
-/**
- * Resolve the list of groups to send to.
- * If explicit targetGroups are given, use them.
- * Otherwise, auto-resolve from MonitoredGroup rows that are ACTIVE + canSendMessages.
- */
-async function resolveTargetGroups(accountIds: string[], explicit: string[]): Promise<string[]> {
-  if (explicit.length > 0) return explicit;
-
+/** Auto-resolve groups for a single account: ACTIVE rows where we can still send. */
+async function resolveTargetGroups(accountId: string): Promise<string[]> {
   const rows = await prisma.monitoredGroup.findMany({
-    where: {
-      accountId: { in: accountIds },
-      status: 'ACTIVE',
-      canSendMessages: true,
-    },
+    where: { accountId, status: 'ACTIVE', canSendMessages: true },
     select: { chatId: true, username: true },
   });
-
-  // Deduplicate by chatId (multiple accounts may have the same group).
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const row of rows) {
-    if (seen.has(row.chatId)) continue;
-    seen.add(row.chatId);
-    result.push(row.username ? `@${row.username}` : row.chatId);
-  }
-  return result;
+  return rows.map((r) => (r.username ? `@${r.username}` : r.chatId));
 }
 
