@@ -268,7 +268,6 @@ export function CampaignDrawer({
   const canSubmit =
     form.name.trim() !== '' &&
     form.message.trim() !== '' &&
-    form.targetGroupsText.trim() !== '' &&
     form.accountIds.length > 0 &&
     form.activeDays.length > 0;
 
@@ -313,14 +312,19 @@ export function CampaignDrawer({
         />
 
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-text-muted">
-            Target Grup / Channel <span className="text-text-muted">(satu per baris, @username atau chat_id)</span>
+          <label className="mb-1 block text-xs font-medium text-text-muted">
+            Target Grup / Channel{' '}
+            <span className="font-normal text-text-muted">(opsional)</span>
           </label>
+          <p className="mb-2 text-[11px] text-text-muted leading-relaxed">
+            Kosongkan untuk otomatis kirim ke semua grup aktif yang dipantau oleh akun terpilih.
+            Isi manual jika ingin menargetkan grup tertentu saja (@username atau chat_id, satu per baris).
+          </p>
           <Textarea
-            rows={4}
+            rows={3}
             value={form.targetGroupsText}
             onChange={(e) => setForm((p) => ({ ...p, targetGroupsText: e.target.value }))}
-            placeholder={'@grupku\n@channelpromo\n-1001234567890'}
+            placeholder={'Kosongkan untuk auto-detect dari MonitoredGroup\natau isi: @grupku'}
           />
           {form.accountIds.length > 0 && (
             <GroupPicker

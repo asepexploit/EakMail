@@ -19,6 +19,7 @@ import { promotionAccountRepository } from '../../modules/promotion/promotion.re
 import { promotionLogRepository } from '../../modules/promotion/promotion.repository.js';
 import { promotionAccountService } from '../../modules/promotion/promotion-account.service.js';
 import { sendPromotionMessage } from '../../modules/promotion/promotion-sender.js';
+import { prisma } from '../../db/client.js';
 import type { WorkerBuildDeps } from './types.js';
 
 const log = logger.child({ module: 'promotion-worker' });
@@ -75,7 +76,14 @@ async function processPromotion(job: Job<PromotionJob>): Promise<void> {
     return;
   }
 
-  const targetGroups = campaign.targetGroups as string[];
+  const targetGroups = await resolveTargetGroups(
+    accountIds,
+    campaign.targetGroups as string[],
+  );
+  if (targetGroups.length === 0) {
+    log.warn({ campaignId }, 'no target groups resolved — skipping');
+    return;
+  }
   const sendMode = campaign.sendMode;
   const delay = campaign.delayBetweenGroupsSeconds * 1000;
 
@@ -139,6 +147,34 @@ async function processPromotion(job: Job<PromotionJob>): Promise<void> {
   }
 
   log.info({ campaignId }, 'promotion run completed');
+}
+
+/**
+ * Resolve the list of groups to send to.
+ * If explicit targetGroups are given, use them.
+ * Otherwise, auto-resolve from MonitoredGroup rows that are ACTIVE + canSendMessages.
+ */
+async function resolveTargetGroups(accountIds: string[], explicit: string[]): Promise<string[]> {
+  if (explicit.length > 0) return explicit;
+
+  const rows = await prisma.monitoredGroup.findMany({
+    where: {
+      accountId: { in: accountIds },
+      status: 'ACTIVE',
+      canSendMessages: true,
+    },
+    select: { chatId: true, username: true },
+  });
+
+  // Deduplicate by chatId (multiple accounts may have the same group).
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const row of rows) {
+    if (seen.has(row.chatId)) continue;
+    seen.add(row.chatId);
+    result.push(row.username ? `@${row.username}` : row.chatId);
+  }
+  return result;
 }
 
 function sleep(ms: number): Promise<void> {
