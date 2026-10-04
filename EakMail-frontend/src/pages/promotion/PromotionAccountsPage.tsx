@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Wifi, WifiOff, Clock, Ban, Plus, Trash2, KeyRound, Send, Users, Radio, AlertCircle } from 'lucide-react';
+import { Wifi, WifiOff, Clock, Ban, Plus, Trash2, KeyRound, Send, Users, Radio, AlertCircle, UserPen } from 'lucide-react';
 import { AccountJoinPanel } from '@/features/promotion/components/AccountJoinPanel';
 import { AutoJoinSettings } from '@/features/promotion/components/AutoJoinSettings';
+import { ProfileEditModal } from '@/features/promotion/components/ProfileEditModal';
 import type { PromotionAccountDto } from '@eakmail/shared-types';
 import { PromotionAccountStatus } from '@eakmail/shared-types';
 import {
@@ -208,6 +209,7 @@ export default function PromotionAccountsPage() {
 function AccountCard({ account, onDelete }: { account: PromotionAccountDto; onDelete: () => void }) {
   const { data: stats } = useAccountStats(account.id);
   const isConnected = account.status === PromotionAccountStatus.CONNECTED;
+  const [profileOpen, setProfileOpen] = useState(false);
 
   return (
     <Card className="flex flex-col gap-0 p-0 overflow-hidden">
@@ -228,14 +230,32 @@ function AccountCard({ account, onDelete }: { account: PromotionAccountDto; onDe
           </div>
           <p className="mt-0.5 text-xs text-text-muted font-mono">+{account.phone}</p>
         </div>
-        <button
-          onClick={onDelete}
-          className="shrink-0 rounded p-1.5 text-text-muted hover:bg-danger/10 hover:text-danger focus:outline-none transition-colors"
-          title="Hapus akun"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {isConnected && (
+            <button
+              onClick={() => setProfileOpen(true)}
+              className="rounded p-1.5 text-text-muted hover:bg-primary/10 hover:text-primary focus:outline-none transition-colors"
+              title="Edit profil Telegram"
+            >
+              <UserPen className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={onDelete}
+            className="rounded p-1.5 text-text-muted hover:bg-danger/10 hover:text-danger focus:outline-none transition-colors"
+            title="Hapus akun"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
+
+      <ProfileEditModal
+        accountId={account.id}
+        accountLabel={account.label}
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+      />
 
       {/* Stats grid */}
       <div className="grid grid-cols-3 divide-x divide-border border-y border-border bg-surface/50">

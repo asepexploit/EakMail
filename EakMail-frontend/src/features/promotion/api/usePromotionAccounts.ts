@@ -78,3 +78,16 @@ export function useJoinAccountGroups(accountId: string) {
     mutationFn: (groups) => http.post(`/promotion/accounts/${accountId}/join`, { groups }),
   });
 }
+
+export interface UpdateProfileInput {
+  firstName?: string;
+  lastName?: string;
+  about?: string;
+  photoUrl?: string | null;
+}
+
+export function useUpdateAccountProfile(accountId: string) {
+  return useMutation<{ ok: boolean }, Error, UpdateProfileInput>({
+    mutationFn: (body) => http.patch(`/promotion/accounts/${accountId}/profile`, body),
+  });
+}
