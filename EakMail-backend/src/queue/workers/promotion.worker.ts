@@ -20,6 +20,7 @@ import { promotionLogRepository } from '../../modules/promotion/promotion.reposi
 import { promotionAccountService } from '../../modules/promotion/promotion-account.service.js';
 import { sendPromotionMessagesBatch } from '../../modules/promotion/promotion-sender.js';
 import { monitoredGroupRepository } from '../../modules/monitor/monitor.repository.js';
+import { leaveReadOnlyGroupsBulk } from '../../modules/monitor/monitor-groups.service.js';
 import { prisma } from '../../db/client.js';
 import type { WorkerBuildDeps } from './types.js';
 
@@ -199,6 +200,12 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
       });
     } catch (err) {
       log.error({ campaignId, accountId: account.id, err }, 'sendPromotionMessagesBatch failed for account');
+    }
+
+    // After each account's batch: auto-leave any groups now marked READ_ONLY.
+    const leftCount = await leaveReadOnlyGroupsBulk(account.id, account.sessionEnc!).catch(() => 0);
+    if (leftCount > 0) {
+      log.info({ campaignId, accountId: account.id, leftCount }, 'auto-left read-only groups after batch');
     }
   }));
 
