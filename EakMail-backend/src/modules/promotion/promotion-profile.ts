@@ -103,8 +103,23 @@ export async function updateTelegramProfile(sessionEnc: string, input: UpdatePro
 
     // Update username (pass empty string to remove).
     if (input.username !== undefined) {
-      await client.invoke(new Api.account.UpdateUsername({ username: input.username }));
-      log.info({ username: input.username }, 'username updated');
+      try {
+        await client.invoke(new Api.account.UpdateUsername({ username: input.username }));
+        log.info({ username: input.username }, 'username updated');
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('USERNAME_OCCUPIED')) {
+          throw new Error('Username sudah digunakan akun Telegram lain. Coba username berbeda.');
+        }
+        if (msg.includes('USERNAME_INVALID')) {
+          throw new Error('Username tidak valid. Gunakan huruf, angka, dan underscore (min 5 karakter).');
+        }
+        if (msg.includes('USERNAME_NOT_MODIFIED')) {
+          // Same username — not an error, skip silently.
+        } else {
+          throw err;
+        }
+      }
     }
 
     // Download and upload new profile photo.
