@@ -43,18 +43,20 @@ export function buildPromotionWorker(deps: WorkerBuildDeps = {}): Worker<Promoti
 async function processPromotion(job: Job<PromotionJob>): Promise<void> {
   const { campaignId } = job.data;
 
-  // Prevent two *scheduled* jobs for the same campaign from running simultaneously.
-  // Force-triggered jobs (manual "Kirim Sekarang") always bypass the lock so the
-  // user gets an immediate send even when a scheduled run is in progress.
-  if (!job.data.force && runningCampaigns.has(campaignId)) {
-    log.info({ campaignId }, 'campaign already running — dropping concurrent scheduled job');
-    return;
+  // Prevent concurrent runs of the same campaign (both scheduled and force).
+  // If already running: drop scheduled jobs silently; force jobs run anyway (user intent).
+  if (runningCampaigns.has(campaignId)) {
+    if (!job.data.force) {
+      log.info({ campaignId }, 'campaign already running — dropping concurrent scheduled job');
+      return;
+    }
+    log.info({ campaignId }, 'force trigger while campaign is running — allowing concurrent force run');
   }
-  if (!job.data.force) runningCampaigns.add(campaignId);
+  runningCampaigns.add(campaignId);
   try {
     await runCampaign(job);
   } finally {
-    if (!job.data.force) runningCampaigns.delete(campaignId);
+    runningCampaigns.delete(campaignId);
   }
 }
 
@@ -124,10 +126,13 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
 
   log.info({ campaignId, sendMode, accountCount: selectedAccounts.length, force: job.data.force }, 'starting campaign run');
 
-  for (const account of selectedAccounts) {
+  // Run all selected accounts concurrently — each opens its own GramJS connection
+  // and sends to its own group list. This is safe: onResult writes to DB per-account
+  // and each account's session is independent.
+  await Promise.allSettled(selectedAccounts.map(async (account) => {
     log.info({ campaignId, accountId: account.id, accountLabel: account.label }, 'processing account');
     const sessionString = await promotionAccountService.getSession(account.id);
-    if (!sessionString) { log.warn({ campaignId, accountId: account.id }, 'no session — skipping'); continue; }
+    if (!sessionString) { log.warn({ campaignId, accountId: account.id }, 'no session — skipping'); return; }
 
     // Explicit targets → same list for every account (user-defined).
     // Auto-detect (empty explicit) → each account sends only to its own monitored groups.
@@ -137,74 +142,65 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
 
     if (targets.length === 0) {
       log.info({ campaignId, accountId: account.id }, 'no target groups for this account — skipping');
-      continue;
+      return;
     }
 
-    // One connection per account run; GetDialogs is called once inside to populate
-    // the entity cache so numeric chatIds (no public username) resolve correctly.
-    // onResult writes each log to DB immediately so Riwayat Kirim updates in real-time
-    // instead of waiting for the full batch (which can take minutes with delays).
-    let hitFloodWait = false;
     try {
-    await sendPromotionMessagesBatch({
-      sessionEnc: account.sessionEnc!,
-      targets,
-      message: campaign.message,
-      imageUrl: campaign.imageUrl,
-      delayMs: delay,
-      force: job.data.force,
-      onResult: async (target, result) => {
-        // Feedback loop: keep DB in sync with real Telegram state after each send attempt.
-        if (result.errorType === 'WRITE_FORBIDDEN' || result.errorType === 'BANNED') {
-          // Can't send → mark READ_ONLY so leaveReadOnlyGroupsBulk auto-leaves it.
-          void monitoredGroupRepository.markReadOnlyByTarget(account.id, target).catch(() => undefined);
-        } else if (result.errorType === 'NOT_FOUND') {
-          // Entity not found → account is no longer a member → mark LEFT immediately.
-          void monitoredGroupRepository.markLeftByTarget(account.id, target).catch(() => undefined);
-        }
+      await sendPromotionMessagesBatch({
+        sessionEnc: account.sessionEnc!,
+        targets,
+        message: campaign.message,
+        imageUrl: campaign.imageUrl,
+        delayMs: delay,
+        force: job.data.force,
+        onResult: async (target, result) => {
+          // Feedback loop: keep DB in sync with real Telegram state after each send attempt.
+          if (result.errorType === 'WRITE_FORBIDDEN' || result.errorType === 'BANNED') {
+            void monitoredGroupRepository.markReadOnlyByTarget(account.id, target).catch(() => undefined);
+          } else if (result.errorType === 'NOT_FOUND') {
+            void monitoredGroupRepository.markLeftByTarget(account.id, target).catch(() => undefined);
+          }
 
-        if (result.floodWaitSeconds) {
-          hitFloodWait = true;
-          await promotionAccountRepository.update(account.id, {
-            status: 'FLOOD_WAIT',
-            floodUntil: new Date(Date.now() + result.floodWaitSeconds * 1000),
-          });
+          if (result.floodWaitSeconds) {
+            await promotionAccountRepository.update(account.id, {
+              status: 'FLOOD_WAIT',
+              floodUntil: new Date(Date.now() + result.floodWaitSeconds * 1000),
+            });
+            await promotionLogRepository.create({
+              campaign: { connect: { id: campaignId } },
+              account: { connect: { id: account.id } },
+              targetGroup: target,
+              status: 'FLOOD_WAIT',
+              errorMessage: result.error,
+            });
+            return;
+          }
+
+          const logStatus = result.ok
+            ? 'SENT'
+            : result.errorType === 'SKIP'
+              ? 'SKIPPED'
+              : 'FAILED';
+
+          const logMessage = result.ok
+            ? null
+            : result.errorType === 'SKIP'
+              ? 'Pesan terakhir masih milik akun ini — menunggu balasan dulu'
+              : (result.error ?? null);
+
           await promotionLogRepository.create({
             campaign: { connect: { id: campaignId } },
             account: { connect: { id: account.id } },
             targetGroup: target,
-            status: 'FLOOD_WAIT',
-            errorMessage: result.error,
+            status: logStatus,
+            errorMessage: logMessage,
           });
-          return;
-        }
-
-        const logStatus = result.ok
-          ? 'SENT'
-          : result.errorType === 'SKIP'
-            ? 'SKIPPED'
-            : 'FAILED';
-
-        const logMessage = result.ok
-          ? null
-          : result.errorType === 'SKIP'
-            ? 'Pesan terakhir masih milik akun ini — menunggu balasan dulu'
-            : (result.error ?? null);
-
-        await promotionLogRepository.create({
-          campaign: { connect: { id: campaignId } },
-          account: { connect: { id: account.id } },
-          targetGroup: target,
-          status: logStatus,
-          errorMessage: logMessage,
-        });
-      },
-    });
+        },
+      });
     } catch (err) {
       log.error({ campaignId, accountId: account.id, err }, 'sendPromotionMessagesBatch failed for account');
     }
-    void hitFloodWait; // flood wait is already handled inside onResult
-  }
+  }));
 
   log.info({ campaignId }, 'promotion run completed');
 }
