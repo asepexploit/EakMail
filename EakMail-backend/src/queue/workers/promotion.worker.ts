@@ -139,6 +139,7 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
       message: campaign.message,
       imageUrl: campaign.imageUrl,
       delayMs: delay,
+      force: job.data.force,
     });
 
     for (const { target, result } of batchResults) {

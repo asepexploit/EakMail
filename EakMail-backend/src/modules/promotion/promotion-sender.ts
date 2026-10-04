@@ -23,6 +23,8 @@ export interface BatchSendParams {
   message: string;
   imageUrl?: string | null;
   delayMs?: number;
+  /** When true, bypass the last-message check (manual trigger). */
+  force?: boolean;
 }
 
 export interface BatchSendResult {
@@ -73,7 +75,7 @@ export async function sendPromotionMessagesBatch(params: BatchSendParams): Promi
     const results: BatchSendResult[] = [];
     for (let i = 0; i < params.targets.length; i++) {
       const target = params.targets[i]!;
-      const result = await sendOne(client, Api, target, params.message, params.imageUrl ?? null, myUserId);
+      const result = await sendOne(client, Api, target, params.message, params.imageUrl ?? null, myUserId, params.force);
       results.push({ target, result });
 
       // Account-level flood wait — stop all further sends from this account
@@ -100,6 +102,7 @@ async function sendOne(
   message: string,
   imageUrl: string | null,
   myUserId: string | null,
+  force?: boolean,
 ): Promise<SendResult> {
   try {
     // Invite links (t.me/+XXXX) are join links — they can't be used as send targets.
@@ -132,9 +135,10 @@ async function sendOne(
       peer = chat;
     }
 
-    // Skip if our message is already the last one in this group.
+    // Skip if our message is already the last one in this group (scheduled runs only).
+    // Manual triggers (force=true) always send regardless.
     // Wait until someone else posts before sending again — prevents spam.
-    if (myUserId) {
+    if (myUserId && !force) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const history: any = await client.invoke(new Api.messages.GetHistory({
