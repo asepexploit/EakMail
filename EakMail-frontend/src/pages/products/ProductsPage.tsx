@@ -91,7 +91,11 @@ export function ProductsPage() {
       sortValue: (row) => row.stock,
       render: (row) => (
         <span className="tabular-nums">
-          {row.stockMode === StockMode.MANUAL ? row.stock : '∞'}
+          {row.stockMode === StockMode.UNLIMITED ||
+           row.stockMode === StockMode.WORKFLOW ||
+           row.stockMode === StockMode.API_SUPPLIER
+            ? '∞'
+            : row.stock}
         </span>
       ),
     },
@@ -171,6 +175,7 @@ export function ProductsPage() {
       </QueryBoundary>
 
       <ProductDrawer
+        key={editing?.id ?? 'new'}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         product={editing}
