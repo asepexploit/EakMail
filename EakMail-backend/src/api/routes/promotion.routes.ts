@@ -35,7 +35,7 @@ const campaignSchema = z.object({
   name: z.string().min(1).max(120),
   message: z.string().min(1),
   imageUrl: z.string().url().nullable().optional(),
-  targetGroups: z.array(z.string().min(1)).min(1),
+  targetGroups: z.array(z.string().min(1)).min(0),
   intervalMinutes: z.number().int().min(1).max(10080),
   activeHoursStart: z.number().int().min(0).max(23),
   activeHoursEnd: z.number().int().min(0).max(23),

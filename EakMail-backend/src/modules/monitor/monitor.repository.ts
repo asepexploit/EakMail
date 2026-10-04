@@ -28,6 +28,13 @@ export const monitoredGroupRepository = {
     });
   },
 
+  findReadOnly(accountId: string) {
+    return prisma.monitoredGroup.findMany({
+      where: { accountId, status: 'READ_ONLY' },
+      select: { id: true, chatId: true, username: true, title: true },
+    });
+  },
+
   countByAccount(accountId: string) {
     return prisma.monitoredGroup.count({ where: { accountId, status: 'ACTIVE' } });
   },

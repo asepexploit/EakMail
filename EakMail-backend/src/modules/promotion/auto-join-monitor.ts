@@ -13,7 +13,7 @@ import { logger } from '../../lib/logger.js';
 import { decrypt } from '../../lib/crypto.js';
 import { prisma } from '../../db/client.js';
 import { joinGroups } from './promotion-joiner.js';
-import { checkAndLeaveIfReadOnly } from '../monitor/monitor-groups.service.js';
+import { checkAndLeaveIfReadOnly, syncAccountGroups, leaveReadOnlyGroupsBulk } from '../monitor/monitor-groups.service.js';
 
 const log = logger.child({ module: 'auto-join-monitor' });
 
@@ -40,10 +40,30 @@ let tickerHandle: ReturnType<typeof setInterval> | null = null;
 // How often to poll each account's groups for new messages
 const POLL_INTERVAL_MS = 30_000;
 
+// Re-sync dialogs + auto-leave READ_ONLY every N polls (~30 min at 30s interval)
+const AUTO_SYNC_EVERY_N_POLLS = 60;
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function isMonitorRunning(accountId: string): boolean {
   return running.has(accountId);
+}
+
+/**
+ * Sync account dialogs into MonitoredGroup + leave all READ_ONLY groups.
+ * Called on monitor start and every AUTO_SYNC_EVERY_N_POLLS cycles.
+ */
+async function runAutoSyncAndLeave(accountId: string): Promise<void> {
+  const account = await prisma.promotionAccount.findUnique({
+    where: { id: accountId },
+    select: { sessionEnc: true, autoJoinEnabled: true },
+  });
+  if (!account?.sessionEnc || !account.autoJoinEnabled) return;
+  await syncAccountGroups(accountId, account.sessionEnc);
+  const leftCount = await leaveReadOnlyGroupsBulk(accountId, account.sessionEnc);
+  if (leftCount > 0) {
+    log.info({ accountId, leftCount }, 'auto-sync: left read-only groups');
+  }
 }
 
 /** Start polling loop for one account. No-op if already running. */
@@ -58,7 +78,13 @@ export async function startMonitor(accountId: string): Promise<void> {
 
   log.info({ accountId }, 'auto-join monitor: starting poll loop');
 
+  // Initial sync: populate MonitoredGroup + leave read-only (non-blocking)
+  void runAutoSyncAndLeave(accountId).catch((err) =>
+    log.warn({ accountId, err }, 'monitor: initial sync failed — non-fatal'),
+  );
+
   let stopped = false;
+  let pollCount = 0;
 
   const pollLoop = async () => {
     while (!stopped) {
@@ -66,6 +92,13 @@ export async function startMonitor(accountId: string): Promise<void> {
         await pollAccount(accountId);
       } catch (err) {
         log.warn({ accountId, err }, 'monitor: poll error');
+      }
+      pollCount++;
+      // Periodic re-sync every ~30 minutes
+      if (pollCount % AUTO_SYNC_EVERY_N_POLLS === 0) {
+        void runAutoSyncAndLeave(accountId).catch((err) =>
+          log.warn({ accountId, err }, 'monitor: periodic sync failed — non-fatal'),
+        );
       }
       // Wait before next poll (check stopped every second to allow fast stop)
       for (let i = 0; i < POLL_INTERVAL_MS / 1000; i++) {
@@ -85,7 +118,7 @@ export async function startMonitor(accountId: string): Promise<void> {
     },
   });
 
-  log.info({ accountId }, 'auto-join monitor started — polling every 30s');
+  log.info({ accountId }, 'auto-join monitor started — polling every 30s, syncing every 30m');
 }
 
 /** Poll latest messages from all active groups for one account. */

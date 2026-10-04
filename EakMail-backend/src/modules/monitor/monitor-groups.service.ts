@@ -211,6 +211,52 @@ export async function checkAndLeaveIfReadOnly(
   }
 }
 
+/**
+ * Leave all READ_ONLY groups for an account in one GramJS session, then mark them LEFT.
+ * Returns number of groups successfully left.
+ */
+export async function leaveReadOnlyGroupsBulk(accountId: string, sessionEnc: string): Promise<number> {
+  const readOnly = await repo.findReadOnly(accountId);
+  if (readOnly.length === 0) return 0;
+
+  const { TelegramClient, StringSession, Api } = await loadGramjs();
+  const { config } = await import('../../config/index.js');
+  const client = new TelegramClient(
+    new StringSession(decrypt(sessionEnc)),
+    config.TELEGRAM_API_ID,
+    config.TELEGRAM_API_HASH,
+    { connectionRetries: 2 },
+  );
+  try {
+    await client.connect();
+  } catch {
+    return 0;
+  }
+
+  let left = 0;
+  try {
+    for (const group of readOnly) {
+      try {
+        const entityInput = group.username ?? group.chatId;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const peer: any = await client.getInputEntity(entityInput);
+        await client.invoke(new Api.channels.LeaveChannel({ channel: peer }));
+        await repo.setStatus(group.id, 'LEFT', new Date());
+        left++;
+        log.info({ accountId, chatId: group.chatId, title: group.title }, 'bulk-left read-only group');
+      } catch (err) {
+        log.warn({ accountId, chatId: group.chatId, err }, 'leaveReadOnlyBulk: leave failed — non-fatal');
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  } finally {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (client as any)._destroyed = true;
+    await client.disconnect().catch(() => undefined);
+  }
+  return left;
+}
+
 /** Leave a specific group manually. */
 export async function leaveGroup(accountId: string, sessionEnc: string, chatId: string): Promise<void> {
   const { TelegramClient, StringSession, Api } = await loadGramjs();
