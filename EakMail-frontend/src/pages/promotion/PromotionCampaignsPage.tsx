@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus, Play, Pause, Archive, Trash2, Edit2, Clock, Users, Radio, LogIn, Zap } from 'lucide-react';
 import type { PromotionCampaignDto, UpsertCampaignRequest } from '@eakmail/shared-types';
-import { CampaignStatus } from '@eakmail/shared-types';
+import { CampaignStatus, CampaignSendMode } from '@eakmail/shared-types';
 import { useToasts } from '@/features/shared/useToasts';
 import {
   usePromotionCampaigns,
@@ -17,6 +17,12 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { strings } from '@/lib/strings';
 import { CampaignDrawer } from '@/features/promotion/components/CampaignDrawer';
+
+const SEND_MODE_LABEL: Record<string, string> = {
+  [CampaignSendMode.ROUND_ROBIN]: 'giliran',
+  [CampaignSendMode.ALL_ACCOUNTS]: 'semua',
+  [CampaignSendMode.RANDOM]: 'acak',
+};
 
 const STATUS_COLOR: Record<string, string> = {
   [CampaignStatus.ACTIVE]: 'bg-success/10 text-success',
@@ -224,7 +230,9 @@ function CampaignCard({
         <div className="flex flex-col items-center gap-0.5 px-3 py-2.5">
           <Users className="h-3.5 w-3.5 text-text-muted" />
           <span className="text-xs font-medium text-text">{accountCount}</span>
-          <span className="text-[10px] text-text-muted">akun</span>
+          <span className="text-[10px] text-text-muted">
+            akun · {SEND_MODE_LABEL[c.sendMode] ?? c.sendMode.toLowerCase()}
+          </span>
         </div>
       </div>
 
