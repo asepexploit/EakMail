@@ -8,7 +8,7 @@ import { prisma } from '../../db/client.js';
 import { promotionAccountRepository } from '../../modules/promotion/promotion.repository.js';
 import { monitoredGroupRepository } from '../../modules/monitor/monitor.repository.js';
 import { syncAccountGroups, leaveGroup } from '../../modules/monitor/monitor-groups.service.js';
-import { startMonitor, stopMonitor, isMonitorRunning, setMessageLogEnabled } from '../../modules/promotion/auto-join-monitor.js';
+import { startMonitor, stopMonitor, isMonitorRunning, setMessageLogEnabled, joinQueueItemNow } from '../../modules/promotion/auto-join-monitor.js';
 import type { MonitoredGroupStatus } from '@prisma/client';
 
 const idParam = z.object({ id: z.string().min(1) });
@@ -213,6 +213,15 @@ export async function monitorRoutes(app: FastifyInstance): Promise<void> {
       status: r.status,
       enqueuedAt: r.enqueuedAt.toISOString(),
     }));
+  });
+
+  app.post('/accounts/:id/queue/:queueId/join-now', async (req) => {
+    const { id, queueId } = z.object({ id: z.string().min(1), queueId: z.string().min(1) }).parse(req.params);
+    const account = await promotionAccountRepository.findById(id);
+    if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
+    if (!account.sessionEnc) { const e = new Error('No active session'); (e as any).statusCode = 400; throw e; }
+    const result = await joinQueueItemNow(id, queueId, account.sessionEnc);
+    return result;
   });
 
   // ── Activity log ─────────────────────────────────────────────────────────

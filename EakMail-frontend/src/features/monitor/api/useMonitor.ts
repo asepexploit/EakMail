@@ -128,6 +128,40 @@ export function useLeaveReadOnly() {
   });
 }
 
+// ── Queue ─────────────────────────────────────────────────────────────────────
+
+export interface QueueItemRow {
+  id: string;
+  accountId: string;
+  accountLabel: string;
+  rawLink: string;
+  sourceGroup: string;
+  status: string;
+  enqueuedAt: string;
+}
+
+export function useAccountQueue(accountId: string, enabled: boolean) {
+  return useQuery<QueueItemRow[]>({
+    queryKey: ['monitor-queue', accountId],
+    queryFn: () => http.get('/monitor/queue', { query: { accountId, limit: 200 } }),
+    enabled,
+    refetchInterval: enabled ? 10_000 : false,
+  });
+}
+
+export function useJoinQueueItemNow() {
+  const qc = useQueryClient();
+  return useMutation<{ ok: boolean; error?: string }, Error, { accountId: string; queueId: string }>({
+    mutationFn: ({ accountId, queueId }) =>
+      http.post(`/monitor/accounts/${accountId}/queue/${queueId}/join-now`, {}),
+    onSuccess: (_, { accountId }) => {
+      qc.invalidateQueries({ queryKey: ['monitor-queue', accountId] });
+      qc.invalidateQueries({ queryKey: ['monitor-accounts'] });
+      qc.invalidateQueries({ queryKey: ['monitor-groups'] });
+    },
+  });
+}
+
 // ── Activity ──────────────────────────────────────────────────────────────────
 
 export function useMonitorActivity(accountId?: string) {

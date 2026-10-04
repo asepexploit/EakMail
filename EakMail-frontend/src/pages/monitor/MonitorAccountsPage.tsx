@@ -9,6 +9,7 @@ import {
   useLeaveReadOnly,
   type MonitorAccountRow,
 } from '@/features/monitor/api/useMonitor';
+import { QueuePanel } from '@/features/monitor/components/QueuePanel';
 
 const MAX_OPTIONS = [2, 3, 5, 8, 10, 15, 20];
 
@@ -149,13 +150,6 @@ function MonitorAccountCard({ account: a, onToggle, onToggleLog, onSync, isSynci
           <Radio className="h-3 w-3 shrink-0" />
           Delay acak 30s–3 mnt · De-duplikasi 24 jam · Leave otomatis jika read-only
         </div>
-        {a.queuePending > 0 && (
-          <div className="flex items-center gap-2 text-[11px] bg-amber-500/10 text-amber-400 rounded px-2 py-1.5">
-            <ListOrdered className="h-3 w-3 shrink-0" />
-            <span><strong>{a.queuePending}</strong> link sedang antri — akan diproses otomatis sesuai limit per jam</span>
-          </div>
-        )}
-
         {/* Message log toggle */}
         <div className="flex items-center justify-between rounded border border-border px-3 py-2">
           <div className="flex items-center gap-2 text-xs text-text">
@@ -195,6 +189,7 @@ function MonitorAccountCard({ account: a, onToggle, onToggleLog, onSync, isSynci
           )}
         </div>
       </div>
+      <QueuePanel accountId={a.id} queuePending={a.queuePending} />
     </Card>
   );
 }

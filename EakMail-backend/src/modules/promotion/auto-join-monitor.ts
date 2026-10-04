@@ -568,6 +568,53 @@ async function processNext(accountId: string, maxPerHour: number): Promise<void>
   }
 }
 
+/** Force-join a specific PENDING queue item immediately, bypassing rate limit and delay. */
+export async function joinQueueItemNow(
+  accountId: string,
+  queueId: string,
+  sessionEnc: string,
+): Promise<{ ok: boolean; alreadyMember?: boolean; error?: string; kept?: boolean; leaveReason?: string }> {
+  const item = await prisma.autoJoinQueue.findFirst({
+    where: { id: queueId, accountId, status: { in: ['PENDING', 'PROCESSING'] } },
+  });
+  if (!item) return { ok: false, error: 'Queue item not found or already processed' };
+
+  // Lock to PROCESSING
+  const locked = await prisma.autoJoinQueue.updateMany({
+    where: { id: queueId, status: { in: ['PENDING', 'PROCESSING'] } },
+    data: { status: 'PROCESSING' },
+  });
+  if (locked.count === 0) return { ok: false, error: 'Item already being processed' };
+
+  const [result] = await joinGroups(sessionEnc, [item.rawLink]);
+  const joinLog = await prisma.autoJoinLog.create({
+    data: {
+      accountId,
+      sourceGroup: item.sourceGroup,
+      targetGroup: item.rawLink,
+      rawLink: item.rawLink,
+      ok: result?.ok ?? false,
+      alreadyMember: result?.alreadyMember ?? false,
+      error: result?.error ?? null,
+    },
+  });
+  await prisma.autoJoinQueue.update({
+    where: { id: queueId },
+    data: { status: 'DONE', processedAt: new Date(), logId: joinLog.id },
+  });
+
+  let kept: boolean | undefined;
+  let leaveReason: string | undefined;
+  if (result?.ok && !result?.alreadyMember) {
+    const check = await checkAndLeaveIfReadOnly(accountId, sessionEnc, item.rawLink, item.rawLink).catch(() => null);
+    kept = check?.kept;
+    leaveReason = check?.reason;
+  }
+
+  log.info({ accountId, rawLink: item.rawLink, ok: result?.ok }, 'queue: force-joined now');
+  return { ok: result?.ok ?? false, alreadyMember: result?.alreadyMember, error: result?.error, kept, leaveReason };
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function genId(): string {
