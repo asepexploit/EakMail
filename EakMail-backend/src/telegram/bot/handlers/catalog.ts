@@ -31,6 +31,16 @@ import {
 } from '../keyboards.js';
 import { setAwaitingQty, clearAwaitingQty, getAwaitingQty } from '../user-state.js';
 
+/** Returns true for all stock modes that consume finite local inventory. */
+function usesFiniteStock(stockMode: string): boolean {
+  return (
+    stockMode === StockMode.MANUAL ||
+    stockMode === StockMode.STOCK_ONLY ||
+    stockMode === StockMode.STOCK_WITH_FALLBACK ||
+    stockMode === StockMode.STOCK_WITH_API_FALLBACK
+  );
+}
+
 let cachedProducts: ProductDto[] | null = null;
 let cacheExpiry = 0;
 const CACHE_TTL_MS = 10_000;
@@ -112,7 +122,7 @@ function quantityKeyboard(
   tr: Translator,
   optionId?: string,
 ): Markup.Markup<InlineKeyboardMarkup> {
-  const isManual = product.stockMode === StockMode.MANUAL;
+  const isManual = usesFiniteStock(product.stockMode);
   const maxAvailable = isManual ? Math.min(product.stock, MAX_QTY) : MAX_QTY;
 
   const qtyButtons = [];
@@ -207,7 +217,7 @@ export async function handleProductCallback(ctx: Context, productId: string): Pr
   const product = products.find((p) => p.id === productId);
   if (!product) return;
 
-  const isManual = product.stockMode === StockMode.MANUAL;
+  const isManual = usesFiniteStock(product.stockMode);
   const stockLine = isManual ? `\n📦 Stok: ${product.stock}` : '';
   const descLine = product.description ? `\n\n${product.description}` : '';
 
@@ -247,7 +257,7 @@ export async function handleOptionCallback(
   const option = product.options.find((o) => o.id === optionId);
   if (!option) return;
 
-  const isManual = product.stockMode === StockMode.MANUAL;
+  const isManual = usesFiniteStock(product.stockMode);
   const stockLine = isManual ? `\n📦 Stok: ${product.stock}` : '';
   const displayPrice = option.price > 0 ? option.price : product.price;
 
@@ -313,13 +323,21 @@ export async function handleQtyMessage(ctx: Context): Promise<boolean> {
     return true;
   }
 
-  // Validate against available stock for manual-stock products.
+  // Validate against available stock for all finite-stock modes.
   const { findById: findProductById } = await import('../../../modules/products/product.repository.js');
-  const { StockMode } = await import('@eakmail/shared-types');
   const product = await findProductById(state.productId);
-  if (product && product.stockMode === StockMode.MANUAL && product.stock < quantity) {
-    await ctx.reply(bot.tr(MessageKey.ORDER_OUT_OF_STOCK));
-    return true;
+  if (product && usesFiniteStock(product.stockMode)) {
+    let available: number;
+    if (product.stockMode === StockMode.MANUAL) {
+      available = product.stock;
+    } else {
+      const { stockRepository } = await import('../../../modules/products/stock.repository.js');
+      available = await stockRepository.countAvailable(product.id);
+    }
+    if (available < quantity) {
+      await ctx.reply(bot.tr(MessageKey.ORDER_OUT_OF_STOCK));
+      return true;
+    }
   }
 
   const { runOrderFlow } = await import('./order.js');

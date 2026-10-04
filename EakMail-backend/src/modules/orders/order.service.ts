@@ -16,6 +16,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../../lib/errors.
 import { logger } from '../../lib/logger.js';
 import { getQueues, QueueName } from '../../queue/queues.js';
 import { findById as findProductById, decrementManualStock } from '../products/product.repository.js';
+import { stockRepository } from '../products/stock.repository.js';
 import { refundService } from '../payments/index.js';
 import { orderRepository } from './order.repository.js';
 import { toOrderDetailDto, toOrderDto } from './order.mapper.js';
@@ -59,10 +60,18 @@ export const orderService = {
     if (!product) throw new NotFoundError('Product');
     if (!product.active) throw new ValidationError('Product is not available');
 
-    // Check manual stock before creating the order.
+    // Check finite-stock modes before creating the order.
     const qty = input.quantity ?? 1;
     if (product.stockMode === StockMode.MANUAL && product.stock < qty) {
       throw new ValidationError('OUT_OF_STOCK');
+    }
+    if (
+      product.stockMode === StockMode.STOCK_ONLY ||
+      product.stockMode === StockMode.STOCK_WITH_FALLBACK ||
+      product.stockMode === StockMode.STOCK_WITH_API_FALLBACK
+    ) {
+      const available = await stockRepository.countAvailable(product.id);
+      if (available < qty) throw new ValidationError('OUT_OF_STOCK');
     }
 
     const selected: SelectedOption[] = (input.selectedOptionIds ?? []).map((optionId) => ({

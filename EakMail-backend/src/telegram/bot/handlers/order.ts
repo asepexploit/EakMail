@@ -116,10 +116,22 @@ export async function runOrderFlow(
     return;
   }
 
-  const isManualStock = product.stockMode === StockMode.MANUAL;
-  if (isManualStock && product.stock < quantity) {
-    await sendMessage(ctx, bot.tr(MessageKey.ORDER_OUT_OF_STOCK));
-    return;
+  if (product.stockMode === StockMode.MANUAL) {
+    if (product.stock < quantity) {
+      await sendMessage(ctx, bot.tr(MessageKey.ORDER_OUT_OF_STOCK));
+      return;
+    }
+  } else if (
+    product.stockMode === StockMode.STOCK_ONLY ||
+    product.stockMode === StockMode.STOCK_WITH_FALLBACK ||
+    product.stockMode === StockMode.STOCK_WITH_API_FALLBACK
+  ) {
+    const { stockRepository } = await import('../../../modules/products/stock.repository.js');
+    const available = await stockRepository.countAvailable(product.id);
+    if (available < quantity) {
+      await sendMessage(ctx, bot.tr(MessageKey.ORDER_OUT_OF_STOCK));
+      return;
+    }
   }
 
   // Resolve selected option (if any). Option price overrides base price when set.
