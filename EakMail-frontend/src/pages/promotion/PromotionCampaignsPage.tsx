@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, Play, Pause, Archive, Trash2, Edit2, Clock, Users, Radio, LogIn } from 'lucide-react';
 import type { PromotionCampaignDto, UpsertCampaignRequest } from '@eakmail/shared-types';
 import { CampaignStatus } from '@eakmail/shared-types';
+import { useToasts } from '@/features/shared/useToasts';
 import {
   usePromotionCampaigns,
   useCreateCampaign,
@@ -35,6 +36,7 @@ export default function PromotionCampaignsPage() {
   const updateCampaign = useUpdateCampaign();
   const setStatus = useSetCampaignStatus();
   const deleteCampaign = useDeleteCampaign();
+  const toast = useToasts();
 
   const joinGroups = useJoinCampaignGroups();
   const [joiningId, setJoiningId] = useState<string | null>(null);
@@ -69,12 +71,16 @@ export default function PromotionCampaignsPage() {
   }
 
   async function handleSubmit(data: UpsertCampaignRequest) {
-    if (editing) {
-      await updateCampaign.mutateAsync({ id: editing.id, ...data });
-    } else {
-      await createCampaign.mutateAsync(data);
+    try {
+      if (editing) {
+        await updateCampaign.mutateAsync({ id: editing.id, ...data });
+      } else {
+        await createCampaign.mutateAsync(data);
+      }
+      setDrawerOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal menyimpan kampanye');
     }
-    setDrawerOpen(false);
   }
 
   return (

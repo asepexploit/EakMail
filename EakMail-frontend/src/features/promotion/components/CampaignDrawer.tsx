@@ -295,6 +295,33 @@ export function CampaignDrawer({
           onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
         />
 
+        <div>
+          <label className="mb-2 block text-xs font-medium text-text-muted">
+            Akun yang Dipakai <span className="text-danger">*</span>
+          </label>
+          {accounts.length === 0 ? (
+            <p className="text-xs text-text-muted">Belum ada akun promosi. Tambah dulu di halaman Akun Promosi.</p>
+          ) : (
+            <div className="space-y-2">
+              {accounts.map((acc) => (
+                <label key={acc.id} className="flex cursor-pointer items-center gap-2 text-sm text-text">
+                  <input
+                    type="checkbox"
+                    checked={form.accountIds.includes(acc.id)}
+                    onChange={() => toggleAccount(acc.id)}
+                    className="accent-brand"
+                  />
+                  <span>{acc.label}</span>
+                  <span className="text-xs text-text-muted">({acc.phone})</span>
+                  <span className={`ml-auto text-xs ${acc.status === 'CONNECTED' ? 'text-success' : 'text-text-muted'}`}>
+                    {acc.status}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
         <Textarea
           label="Pesan (Markdown)"
           rows={5}
@@ -450,32 +477,6 @@ export function CampaignDrawer({
           onChange={(e) => setForm((p) => ({ ...p, sendMode: e.target.value }))}
         />
 
-        <div>
-          <label className="mb-2 block text-xs font-medium text-text-muted">
-            Akun yang Dipakai <span className="text-danger">*</span>
-          </label>
-          {accounts.length === 0 ? (
-            <p className="text-xs text-text-muted">Belum ada akun promosi. Tambah dulu di halaman Akun Promosi.</p>
-          ) : (
-            <div className="space-y-2">
-              {accounts.map((acc) => (
-                <label key={acc.id} className="flex cursor-pointer items-center gap-2 text-sm text-text">
-                  <input
-                    type="checkbox"
-                    checked={form.accountIds.includes(acc.id)}
-                    onChange={() => toggleAccount(acc.id)}
-                    className="accent-brand"
-                  />
-                  <span>{acc.label}</span>
-                  <span className="text-xs text-text-muted">({acc.phone})</span>
-                  <span className={`ml-auto text-xs ${acc.status === 'CONNECTED' ? 'text-success' : 'text-text-muted'}`}>
-                    {acc.status}
-                  </span>
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </Drawer>
   );
