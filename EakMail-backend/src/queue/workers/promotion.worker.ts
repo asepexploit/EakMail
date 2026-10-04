@@ -122,9 +122,12 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
     if (selected) selectedAccounts = [selected];
   }
 
+  log.info({ campaignId, sendMode, accountCount: selectedAccounts.length, force: job.data.force }, 'starting campaign run');
+
   for (const account of selectedAccounts) {
+    log.info({ campaignId, accountId: account.id, accountLabel: account.label }, 'processing account');
     const sessionString = await promotionAccountService.getSession(account.id);
-    if (!sessionString) continue;
+    if (!sessionString) { log.warn({ campaignId, accountId: account.id }, 'no session — skipping'); continue; }
 
     // Explicit targets → same list for every account (user-defined).
     // Auto-detect (empty explicit) → each account sends only to its own monitored groups.
