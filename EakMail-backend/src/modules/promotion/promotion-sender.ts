@@ -187,7 +187,11 @@ async function sendOne(
       log.warn({ target, seconds }, 'flood wait hit');
       return { ok: false, error: msg, errorType: 'FLOOD_WAIT', floodWaitSeconds: seconds };
     }
-    if (msg.includes('CHAT_WRITE_FORBIDDEN') || msg.includes('CHAT_SEND_PLAIN_FORBIDDEN')) {
+    if (
+      msg.includes('CHAT_WRITE_FORBIDDEN') ||
+      msg.includes('CHAT_SEND_PLAIN_FORBIDDEN') ||
+      msg.includes('TOPIC_CLOSED')
+    ) {
       log.info({ target }, 'write forbidden — will mark READ_ONLY');
       return { ok: false, error: msg, errorType: 'WRITE_FORBIDDEN' };
     }

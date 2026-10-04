@@ -150,9 +150,13 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
       delayMs: delay,
       force: job.data.force,
       onResult: async (target, result) => {
-        // Feedback loop: mark write-forbidden / banned groups READ_ONLY for auto-leave
+        // Feedback loop: keep DB in sync with real Telegram state after each send attempt.
         if (result.errorType === 'WRITE_FORBIDDEN' || result.errorType === 'BANNED') {
+          // Can't send → mark READ_ONLY so leaveReadOnlyGroupsBulk auto-leaves it.
           void monitoredGroupRepository.markReadOnlyByTarget(account.id, target).catch(() => undefined);
+        } else if (result.errorType === 'NOT_FOUND') {
+          // Entity not found → account is no longer a member → mark LEFT immediately.
+          void monitoredGroupRepository.markLeftByTarget(account.id, target).catch(() => undefined);
         }
 
         if (result.floodWaitSeconds) {

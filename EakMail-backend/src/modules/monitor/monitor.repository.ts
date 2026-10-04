@@ -37,13 +37,19 @@ export const monitoredGroupRepository = {
 
   /** Mark a group READ_ONLY by accountId + target (numeric chatId or @username/username). */
   markReadOnlyByTarget(accountId: string, target: string) {
-    const isNumeric = /^-\d+$/.test(target);
-    const where = isNumeric
-      ? { accountId, chatId: target }
-      : { accountId, username: target.replace(/^@/, '').toLowerCase() };
+    const where = targetWhere(accountId, target);
     return prisma.monitoredGroup.updateMany({
       where,
       data: { status: 'READ_ONLY', canSendMessages: false },
+    });
+  },
+
+  /** Mark a group LEFT by accountId + target — account is no longer a member. */
+  markLeftByTarget(accountId: string, target: string) {
+    const where = targetWhere(accountId, target);
+    return prisma.monitoredGroup.updateMany({
+      where,
+      data: { status: 'LEFT', canSendMessages: false, leftAt: new Date() },
     });
   },
 
@@ -59,3 +65,10 @@ export const monitoredGroupRepository = {
     });
   },
 };
+
+function targetWhere(accountId: string, target: string) {
+  const isNumeric = /^-\d+$/.test(target);
+  return isNumeric
+    ? { accountId, chatId: target }
+    : { accountId, username: target.replace(/^@/, '').toLowerCase() };
+}
