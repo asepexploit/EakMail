@@ -152,7 +152,7 @@ async function sendOne(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const history: any = await client.invoke(new Api.messages.GetHistory({
           peer,
-          limit: 1,
+          limit: 5,
           offsetId: 0,
           offsetDate: 0,
           addOffset: 0,
@@ -161,7 +161,10 @@ async function sendOne(
           hash: BigInt(0),
         }));
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const lastMsg: any = history?.messages?.[0];
+        const messages: any[] = history?.messages ?? [];
+        // Ignore service messages (join/leave/pin notifications) — only check real user messages.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const lastMsg: any = messages.find((m: any) => m.className === 'Message');
         const senderId = lastMsg?.senderId ?? lastMsg?.fromId?.userId;
         if (senderId && String(senderId) === myUserId) {
           log.info({ target }, 'last message is already ours — skipping to avoid spam');
