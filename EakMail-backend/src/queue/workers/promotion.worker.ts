@@ -18,7 +18,8 @@ import { promotionCampaignRepository } from '../../modules/promotion/promotion.r
 import { promotionAccountRepository } from '../../modules/promotion/promotion.repository.js';
 import { promotionLogRepository } from '../../modules/promotion/promotion.repository.js';
 import { promotionAccountService } from '../../modules/promotion/promotion-account.service.js';
-import { sendPromotionMessage } from '../../modules/promotion/promotion-sender.js';
+import { sendPromotionMessagesBatch } from '../../modules/promotion/promotion-sender.js';
+import { monitoredGroupRepository } from '../../modules/monitor/monitor.repository.js';
 import { prisma } from '../../db/client.js';
 import type { WorkerBuildDeps } from './types.js';
 
@@ -110,16 +111,24 @@ async function processPromotion(job: Job<PromotionJob>): Promise<void> {
     const sessionString = await promotionAccountService.getSession(account.id);
     if (!sessionString) continue;
 
-    for (const targetGroup of targetGroups) {
-      const result = await sendPromotionMessage({
-        sessionEnc: account.sessionEnc!,
-        targetGroup,
-        message: campaign.message,
-        imageUrl: campaign.imageUrl,
-      });
+    // One connection per account run; GetDialogs is called once inside to populate
+    // the entity cache so numeric chatIds (no public username) resolve correctly.
+    const batchResults = await sendPromotionMessagesBatch({
+      sessionEnc: account.sessionEnc!,
+      targets: targetGroups,
+      message: campaign.message,
+      imageUrl: campaign.imageUrl,
+      delayMs: delay,
+    });
+
+    for (const { target, result } of batchResults) {
+      // Feedback loop: write-forbidden / banned groups → mark READ_ONLY so the
+      // periodic leaveReadOnlyGroupsBulk auto-leaves them on next sync cycle.
+      if (result.errorType === 'WRITE_FORBIDDEN' || result.errorType === 'BANNED') {
+        void monitoredGroupRepository.markReadOnlyByTarget(account.id, target).catch(() => undefined);
+      }
 
       if (result.floodWaitSeconds) {
-        // Mark account in flood-wait
         await promotionAccountRepository.update(account.id, {
           status: 'FLOOD_WAIT',
           floodUntil: new Date(Date.now() + result.floodWaitSeconds * 1000),
@@ -127,24 +136,20 @@ async function processPromotion(job: Job<PromotionJob>): Promise<void> {
         await promotionLogRepository.create({
           campaign: { connect: { id: campaignId } },
           account: { connect: { id: account.id } },
-          targetGroup,
+          targetGroup: target,
           status: 'FLOOD_WAIT',
           errorMessage: result.error,
         });
-        break; // stop sending from this account
+        break;
       }
 
       await promotionLogRepository.create({
         campaign: { connect: { id: campaignId } },
         account: { connect: { id: account.id } },
-        targetGroup,
+        targetGroup: target,
         status: result.ok ? 'SENT' : 'FAILED',
         errorMessage: result.error ?? null,
       });
-
-      if (delay > 0 && targetGroups.indexOf(targetGroup) < targetGroups.length - 1) {
-        await sleep(delay);
-      }
     }
   }
 
@@ -179,6 +184,3 @@ async function resolveTargetGroups(accountIds: string[], explicit: string[]): Pr
   return result;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}

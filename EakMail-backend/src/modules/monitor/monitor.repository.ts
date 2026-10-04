@@ -35,6 +35,18 @@ export const monitoredGroupRepository = {
     });
   },
 
+  /** Mark a group READ_ONLY by accountId + target (numeric chatId or @username/username). */
+  markReadOnlyByTarget(accountId: string, target: string) {
+    const isNumeric = /^-\d+$/.test(target);
+    const where = isNumeric
+      ? { accountId, chatId: target }
+      : { accountId, username: target.replace(/^@/, '').toLowerCase() };
+    return prisma.monitoredGroup.updateMany({
+      where,
+      data: { status: 'READ_ONLY', canSendMessages: false },
+    });
+  },
+
   countByAccount(accountId: string) {
     return prisma.monitoredGroup.count({ where: { accountId, status: 'ACTIVE' } });
   },
