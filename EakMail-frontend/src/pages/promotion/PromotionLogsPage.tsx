@@ -83,7 +83,7 @@ export default function PromotionLogsPage() {
                       <span>{STATUS_LABEL[log.status]}</span>
                     </div>
                   </td>
-                  <td className="max-w-xs truncate px-4 py-3 text-xs text-danger">
+                  <td className={`max-w-xs truncate px-4 py-3 text-xs ${log.status === 'SKIPPED' ? 'text-text-muted' : log.errorMessage ? 'text-danger' : 'text-text-muted'}`}>
                     {log.errorMessage ?? '—'}
                   </td>
                 </tr>

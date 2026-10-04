@@ -164,15 +164,24 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
         break;
       }
 
-      // SKIP = our message is still last in this group; no log entry needed
-      if (result.errorType === 'SKIP') continue;
+      const logStatus = result.ok
+        ? 'SENT'
+        : result.errorType === 'SKIP'
+          ? 'SKIPPED'
+          : 'FAILED';
+
+      const logMessage = result.ok
+        ? null
+        : result.errorType === 'SKIP'
+          ? 'Pesan terakhir masih milik akun ini — menunggu balasan dulu'
+          : (result.error ?? null);
 
       await promotionLogRepository.create({
         campaign: { connect: { id: campaignId } },
         account: { connect: { id: account.id } },
         targetGroup: target,
-        status: result.ok ? 'SENT' : 'FAILED',
-        errorMessage: result.error ?? null,
+        status: logStatus,
+        errorMessage: logMessage,
       });
     }
   }
