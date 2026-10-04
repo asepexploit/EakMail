@@ -22,12 +22,13 @@ let bundle: GramjsBundle | null = null;
 
 async function loadGramjs(): Promise<GramjsBundle> {
   if (bundle) return bundle;
-  const [tg, sessions, api] = await Promise.all([
-    import('telegram'),
-    import('telegram/sessions/index.js'),
-    import('telegram/tl/functions/index.js'),
-  ]);
-  bundle = { Api: { ...tg.Api, ...api }, TelegramClient: tg.TelegramClient, StringSession: sessions.StringSession };
+  const tg = await import('telegram');
+  const sessions = await import('telegram/sessions/index.js');
+  bundle = {
+    Api: (tg as G).Api,
+    TelegramClient: (tg as G).TelegramClient,
+    StringSession: (sessions as G).StringSession,
+  };
   return bundle;
 }
 
