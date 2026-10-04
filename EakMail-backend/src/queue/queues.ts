@@ -47,6 +47,8 @@ export interface NotificationJob {
 
 export interface PromotionJob {
   campaignId: string;
+  /** When true, bypass active-hour and active-day guards (manual trigger). */
+  force?: boolean;
 }
 
 export interface JobPayloadMap {

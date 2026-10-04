@@ -44,20 +44,22 @@ async function processPromotion(job: Job<PromotionJob>): Promise<void> {
     return;
   }
 
-  // Active-hour guard (Jakarta WIB = UTC+7)
-  const nowWib = new Date(Date.now() + 7 * 3600 * 1000);
-  const hour = nowWib.getUTCHours();
-  const day = nowWib.getUTCDay(); // 0=Sun
+  // Active-hour / active-day guard — skipped when job is a manual force-trigger
+  if (!job.data.force) {
+    const nowWib = new Date(Date.now() + 7 * 3600 * 1000);
+    const hour = nowWib.getUTCHours();
+    const day = nowWib.getUTCDay(); // 0=Sun
 
-  if (hour < campaign.activeHoursStart || hour > campaign.activeHoursEnd) {
-    log.info({ campaignId, hour }, 'outside active hours — skipping');
-    return;
-  }
+    if (hour < campaign.activeHoursStart || hour > campaign.activeHoursEnd) {
+      log.info({ campaignId, hour }, 'outside active hours — skipping');
+      return;
+    }
 
-  const activeDays = campaign.activeDays as number[];
-  if (!activeDays.includes(day)) {
-    log.info({ campaignId, day }, 'outside active days — skipping');
-    return;
+    const activeDays = campaign.activeDays as number[];
+    if (!activeDays.includes(day)) {
+      log.info({ campaignId, day }, 'outside active days — skipping');
+      return;
+    }
   }
 
   const accountIds = campaign.accounts.map((a) => a.accountId);

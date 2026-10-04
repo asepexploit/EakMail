@@ -57,3 +57,9 @@ export function useJoinCampaignGroups() {
     mutationFn: (id) => http.post(`/promotion/campaigns/${id}/join`, {}),
   });
 }
+
+export function useTriggerCampaign() {
+  return useMutation<{ ok: boolean }, Error, string>({
+    mutationFn: (id) => http.post(`/promotion/campaigns/${id}/trigger`, {}),
+  });
+}

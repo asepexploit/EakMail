@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Play, Pause, Archive, Trash2, Edit2, Clock, Users, Radio, LogIn } from 'lucide-react';
+import { Plus, Play, Pause, Archive, Trash2, Edit2, Clock, Users, Radio, LogIn, Zap } from 'lucide-react';
 import type { PromotionCampaignDto, UpsertCampaignRequest } from '@eakmail/shared-types';
 import { CampaignStatus } from '@eakmail/shared-types';
 import { useToasts } from '@/features/shared/useToasts';
@@ -10,6 +10,7 @@ import {
   useSetCampaignStatus,
   useDeleteCampaign,
   useJoinCampaignGroups,
+  useTriggerCampaign,
 } from '@/features/promotion/api/usePromotionCampaigns';
 import { usePromotionAccounts } from '@/features/promotion/api/usePromotionAccounts';
 import { Button } from '@/components/ui/Button';
@@ -39,8 +40,10 @@ export default function PromotionCampaignsPage() {
   const toast = useToasts();
 
   const joinGroups = useJoinCampaignGroups();
+  const triggerCampaign = useTriggerCampaign();
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [joinResults, setJoinResults] = useState<{ campaignId: string; summary: string } | null>(null);
+  const [triggeringId, setTriggeringId] = useState<string | null>(null);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<PromotionCampaignDto | null>(null);
@@ -53,6 +56,18 @@ export default function PromotionCampaignsPage() {
   function openEdit(c: PromotionCampaignDto) {
     setEditing(c);
     setDrawerOpen(true);
+  }
+
+  async function handleTrigger(id: string) {
+    setTriggeringId(id);
+    try {
+      await triggerCampaign.mutateAsync(id);
+      toast.success('Kampanye dikirim', 'Pesan sedang dikirim ke grup sekarang');
+    } catch {
+      toast.error('Gagal trigger kampanye');
+    } finally {
+      setTriggeringId(null);
+    }
   }
 
   async function handleJoinGroups(id: string) {
@@ -120,6 +135,8 @@ export default function PromotionCampaignsPage() {
               onJoinGroups={() => handleJoinGroups(c.id)}
               isJoining={joiningId === c.id}
               joinSummary={joinResults?.campaignId === c.id ? joinResults.summary : undefined}
+              onTrigger={() => handleTrigger(c.id)}
+              isTriggering={triggeringId === c.id}
             />
           ))}
         </div>
@@ -148,6 +165,8 @@ interface CampaignCardProps {
   onJoinGroups: () => void;
   isJoining: boolean;
   joinSummary?: string;
+  onTrigger: () => void;
+  isTriggering: boolean;
 }
 
 function CampaignCard({
@@ -161,65 +180,93 @@ function CampaignCard({
   onJoinGroups,
   isJoining,
   joinSummary,
+  onTrigger,
+  isTriggering,
 }: CampaignCardProps) {
   const isActive = c.status === CampaignStatus.ACTIVE;
   const isPaused = c.status === CampaignStatus.PAUSED;
+  const isArchived = c.status === CampaignStatus.ARCHIVED;
 
   return (
-    <Card className="flex flex-col gap-4 p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="font-medium text-text">{c.name}</p>
+    <Card className="flex flex-col gap-0 overflow-hidden p-0">
+      {/* Header */}
+      <div className="flex items-start gap-3 border-b border-border p-4 pb-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-text">{c.name}</span>
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[c.status]}`}>
               {STATUS_LABEL[c.status]}
             </span>
           </div>
           <p className="mt-1 line-clamp-2 text-sm text-text-muted">{c.message}</p>
         </div>
-        <button onClick={onEdit} className="shrink-0 p-1 text-text-muted hover:text-brand">
+        <button onClick={onEdit} className="mt-0.5 shrink-0 rounded p-1 text-text-muted hover:bg-surface hover:text-brand">
           <Edit2 className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-xs text-text-muted">
-        <div className="flex items-center gap-1">
-          <Clock className="h-3.5 w-3.5" />
-          <span>Tiap {c.intervalMinutes} menit</span>
+      {/* Stats row */}
+      <div className="grid grid-cols-3 divide-x divide-border border-b border-border bg-surface/40">
+        <div className="flex flex-col items-center gap-0.5 px-3 py-2.5">
+          <Clock className="h-3.5 w-3.5 text-text-muted" />
+          <span className="text-xs font-medium text-text">{c.intervalMinutes}m</span>
+          <span className="text-[10px] text-text-muted">interval</span>
         </div>
-        <div className="flex items-center gap-1">
-          <Radio className="h-3.5 w-3.5" />
-          <span>{c.targetGroups.length > 0 ? `${c.targetGroups.length} grup` : 'otomatis'}</span>
+        <div className="flex flex-col items-center gap-0.5 px-3 py-2.5">
+          <Radio className="h-3.5 w-3.5 text-text-muted" />
+          <span className="text-xs font-medium text-text">
+            {c.targetGroups.length > 0 ? c.targetGroups.length : '—'}
+          </span>
+          <span className="text-[10px] text-text-muted">
+            {c.targetGroups.length > 0 ? 'grup' : 'otomatis'}
+          </span>
         </div>
-        <div className="flex items-center gap-1">
-          <Users className="h-3.5 w-3.5" />
-          <span>{accountCount} akun</span>
+        <div className="flex flex-col items-center gap-0.5 px-3 py-2.5">
+          <Users className="h-3.5 w-3.5 text-text-muted" />
+          <span className="text-xs font-medium text-text">{accountCount}</span>
+          <span className="text-[10px] text-text-muted">akun</span>
         </div>
       </div>
 
+      {/* Next run */}
       {c.nextRunAt && isActive && (
-        <p className="text-xs text-text-muted">
-          Kirim berikutnya: {new Date(c.nextRunAt).toLocaleString('id-ID')}
-        </p>
+        <div className="border-b border-border px-4 py-2 text-xs text-text-muted">
+          Kirim berikutnya: <span className="font-medium text-text">{new Date(c.nextRunAt).toLocaleString('id-ID')}</span>
+        </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
+      {/* Actions */}
+      <div className="flex flex-wrap items-center gap-1.5 p-3">
+        {/* Kirim Sekarang — primary trigger */}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onTrigger}
+          isLoading={isTriggering}
+          className="text-brand border-brand/30 hover:bg-brand/10"
+          title="Kirim pesan kampanye sekarang, abaikan jadwal aktif"
+        >
+          <Zap className="h-3.5 w-3.5" />
+          Kirim Sekarang
+        </Button>
+
+        <div className="mx-0.5 h-4 w-px bg-border" />
+
         {isPaused && (
-          <Button size="sm" variant="ghost" onClick={onActivate} className="text-success border-success/30">
+          <Button size="sm" variant="ghost" onClick={onActivate} className="text-success">
             <Play className="h-3.5 w-3.5" />
             Aktifkan
           </Button>
         )}
         {isActive && (
-          <Button size="sm" variant="ghost" onClick={onPause}>
+          <Button size="sm" variant="ghost" onClick={onPause} className="text-warning">
             <Pause className="h-3.5 w-3.5" />
             Jeda
           </Button>
         )}
-        {!isPaused && c.status !== CampaignStatus.ARCHIVED && (
+        {!isArchived && (
           <Button size="sm" variant="ghost" onClick={onArchive} className="text-text-muted">
             <Archive className="h-3.5 w-3.5" />
-            Arsip
           </Button>
         )}
         <Button
@@ -227,17 +274,18 @@ function CampaignCard({
           variant="ghost"
           onClick={onJoinGroups}
           isLoading={isJoining}
-          title="Auto-join semua target grup dengan akun yang terpilih"
+          className="text-text-muted"
+          title="Auto-join semua target grup"
         >
           <LogIn className="h-3.5 w-3.5" />
-          Join Grup
         </Button>
         <Button size="sm" variant="ghost" onClick={onDelete} className="ml-auto text-danger">
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
+
       {joinSummary && (
-        <p className="text-xs text-text-muted">{joinSummary}</p>
+        <p className="border-t border-border px-4 pb-3 pt-2 text-xs text-text-muted">{joinSummary}</p>
       )}
     </Card>
   );

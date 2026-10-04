@@ -232,6 +232,21 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
+  // ── Manual trigger ────────────────────────────────────────────────────────
+
+  app.post('/campaigns/:id/trigger', async (req) => {
+    const { id } = idParam.parse(req.params);
+    const campaign = await promotionCampaignRepository.findById(id);
+    if (!campaign) { const e = new Error('Campaign not found'); (e as any).statusCode = 404; throw e; }
+    const { getQueues, QueueName } = await import('../../queue/queues.js');
+    await getQueues()[QueueName.PROMOTION].add(
+      'run',
+      { campaignId: id, force: true },
+      { jobId: `promo-trigger-${id}-${Date.now()}`, removeOnComplete: 5, removeOnFail: 5 },
+    );
+    return { ok: true };
+  });
+
   // ── Auto-Join Groups ─────────────────────────────────────────────────────
 
   app.post('/campaigns/:id/join', async (req) => {
