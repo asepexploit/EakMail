@@ -43,14 +43,12 @@ export function buildPromotionWorker(deps: WorkerBuildDeps = {}): Worker<Promoti
 async function processPromotion(job: Job<PromotionJob>): Promise<void> {
   const { campaignId } = job.data;
 
-  // Prevent concurrent runs of the same campaign (both scheduled and force).
-  // If already running: drop scheduled jobs silently; force jobs run anyway (user intent).
+  // Prevent concurrent runs of the same campaign.
+  // Any job (scheduled or force) that arrives while the campaign is already running is dropped.
+  // Force-trigger deduplication (fixed jobId) ensures the user can still trigger after current run finishes.
   if (runningCampaigns.has(campaignId)) {
-    if (!job.data.force) {
-      log.info({ campaignId }, 'campaign already running — dropping concurrent scheduled job');
-      return;
-    }
-    log.info({ campaignId }, 'force trigger while campaign is running — allowing concurrent force run');
+    log.info({ campaignId, force: !!job.data.force }, 'campaign already running — dropping concurrent job to prevent duplicate sends');
+    return;
   }
   runningCampaigns.add(campaignId);
   try {
@@ -136,9 +134,11 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
 
     // Explicit targets → same list for every account (user-defined).
     // Auto-detect (empty explicit) → each account sends only to its own monitored groups.
-    const targets = explicitTargets.length > 0
+    // Deduplicate to prevent sending to the same group twice if target list has duplicates.
+    const rawTargets = explicitTargets.length > 0
       ? explicitTargets
       : await resolveTargetGroups(account.id);
+    const targets = [...new Set(rawTargets)];
 
     if (targets.length === 0) {
       log.info({ campaignId, accountId: account.id }, 'no target groups for this account — skipping');
