@@ -189,7 +189,7 @@ function CampaignCard({
         </div>
         <div className="flex items-center gap-1">
           <Radio className="h-3.5 w-3.5" />
-          <span>{c.targetGroups.length} grup</span>
+          <span>{c.targetGroups.length > 0 ? `${c.targetGroups.length} grup` : 'otomatis'}</span>
         </div>
         <div className="flex items-center gap-1">
           <Users className="h-3.5 w-3.5" />
