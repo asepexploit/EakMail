@@ -125,14 +125,24 @@ async function sendTopupExpiredNotification(
     const lang = (customer.language as Language) ?? 'id';
     const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
     const text = t(MessageKey.TOPUP_EXPIRED, lang, { amount: fmt(amount) });
-    const qrMsg = await getTopupMsg(topupId);
+    const [qrMsg, botConfig] = await Promise.all([
+      getTopupMsg(topupId),
+      prisma.botConfig.findFirst({ select: { topupExpiredImageUrl: true } }),
+    ]);
     if (qrMsg) void clearTopupMsg(topupId);
+    const expiredImageUrl = botConfig?.topupExpiredImageUrl ?? null;
     await getQueues()[QueueName.NOTIFICATIONS].add(
       'topup-expired',
       {
         customerTelegramId: customer.telegramId,
         text,
-        ...(qrMsg && { editChatId: qrMsg.chatId, editMessageId: qrMsg.messageId, editDeleteMsg: true }),
+        ...(qrMsg && {
+          editChatId: qrMsg.chatId,
+          editMessageId: qrMsg.messageId,
+          ...(expiredImageUrl
+            ? { editSuccessImageUrl: expiredImageUrl }
+            : { editDeleteMsg: true }),
+        }),
       },
       { jobId: `topup-expired-${topupId}`, attempts: 3 },
     );

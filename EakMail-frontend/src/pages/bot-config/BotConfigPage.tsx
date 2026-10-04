@@ -29,6 +29,7 @@ interface Draft {
   startPhotoUrl: string;
   csContactUrl: string;
   topupSuccessImageUrl: string;
+  topupExpiredImageUrl: string;
   supportContact: string;
   menu: BotMenuButton[];
   texts: Record<LanguageType, Record<string, string>>;
@@ -42,6 +43,7 @@ function toDraft(config: BotConfigDto): Draft {
     startPhotoUrl: config.startPhotoUrl ?? '',
     csContactUrl: config.csContactUrl ?? '',
     topupSuccessImageUrl: config.topupSuccessImageUrl ?? '',
+    topupExpiredImageUrl: config.topupExpiredImageUrl ?? '',
     supportContact: config.texts[DEFAULT_LANGUAGE]?.supportContact ?? '',
     menu: config.menu,
     texts: {
@@ -83,6 +85,7 @@ export function BotConfigPage() {
       startPhotoUrl: draft.startPhotoUrl || null,
       csContactUrl: draft.csContactUrl || null,
       topupSuccessImageUrl: draft.topupSuccessImageUrl || null,
+      topupExpiredImageUrl: draft.topupExpiredImageUrl || null,
       menu: draft.menu,
       texts: draft.texts,
     };
@@ -142,6 +145,13 @@ export function BotConfigPage() {
                       mono
                       placeholder="https://example.com/topup-success.jpg"
                       onChange={(e) => setDraft({ ...draft, topupSuccessImageUrl: e.target.value })}
+                    />
+                    <Input
+                      label="Gambar Kadaluarsa Topup (URL — muncul menggantikan QR setelah pembayaran kadaluarsa, opsional)"
+                      value={draft.topupExpiredImageUrl}
+                      mono
+                      placeholder="https://example.com/topup-expired.jpg"
+                      onChange={(e) => setDraft({ ...draft, topupExpiredImageUrl: e.target.value })}
                     />
                     <Input
                       label={featureStrings.botConfig.supportContact}

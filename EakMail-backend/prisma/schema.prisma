@@ -198,6 +198,7 @@ model BotConfig {
   startPhotoUrl          String? // shown as photo above welcome message on /start
   csContactUrl           String? // URL for "Hubungi CS" button in /help
   topupSuccessImageUrl   String? // optional image shown after topup payment succeeds
+  topupExpiredImageUrl   String? // optional image shown after topup payment expires
   menu           Json     @default("[]")
   texts          Json     @default("{}") // { id: {key:val}, en: {key:val} }
   updatedAt      DateTime @updatedAt

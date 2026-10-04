@@ -42,6 +42,7 @@ function toDto(row: BotConfig): BotConfigDto {
     startPhotoUrl: row.startPhotoUrl,
     csContactUrl: row.csContactUrl,
     topupSuccessImageUrl: row.topupSuccessImageUrl,
+    topupExpiredImageUrl: row.topupExpiredImageUrl,
     botTokenSet: Boolean(row.botTokenEnc),
     menu: readMenu(row.menu),
     texts: readTexts(row.texts),
@@ -75,6 +76,7 @@ export async function updateBotConfig(
   if (input.startPhotoUrl !== undefined) data.startPhotoUrl = input.startPhotoUrl;
   if (input.csContactUrl !== undefined) data.csContactUrl = input.csContactUrl;
   if (input.topupSuccessImageUrl !== undefined) data.topupSuccessImageUrl = input.topupSuccessImageUrl;
+  if (input.topupExpiredImageUrl !== undefined) data.topupExpiredImageUrl = input.topupExpiredImageUrl;
   if (input.menu !== undefined) {
     data.menu = input.menu as unknown as Prisma.InputJsonValue;
   }

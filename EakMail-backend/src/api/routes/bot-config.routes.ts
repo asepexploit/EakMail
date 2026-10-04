@@ -25,6 +25,7 @@ const updateSchema = z.object({
   startPhotoUrl: z.string().url().nullish(),
   csContactUrl: z.string().url().nullish(),
   topupSuccessImageUrl: z.string().url().nullish(),
+  topupExpiredImageUrl: z.string().url().nullish(),
   // Write-only; encrypted at rest, never echoed back (ARCHITECTURE.md §10).
   botToken: z.string().min(1).optional(),
   menu: z.array(menuButtonSchema).optional(),

@@ -236,6 +236,8 @@ export interface BotConfigDto {
   csContactUrl: string | null;
   /** Optional image shown in place of the QR code after topup succeeds. */
   topupSuccessImageUrl: string | null;
+  /** Optional image shown in place of the QR code after topup expires. */
+  topupExpiredImageUrl: string | null;
   botTokenSet: boolean; // never returns the token itself (write-only)
   menu: BotMenuButton[];
   /** Per-locale editable copy: texts[locale][key] = string. */
@@ -251,6 +253,8 @@ export interface UpdateBotConfigRequest {
   csContactUrl?: string | null;
   /** Optional image shown in place of the QR code after topup succeeds. */
   topupSuccessImageUrl?: string | null;
+  /** Optional image shown in place of the QR code after topup expires. */
+  topupExpiredImageUrl?: string | null;
   /** Write-only; when present, stored encrypted. Never echoed back. */
   botToken?: string;
   menu?: BotMenuButton[];
