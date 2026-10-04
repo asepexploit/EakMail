@@ -247,8 +247,8 @@ function AccountCard({ account, onDelete }: { account: PromotionAccountDto; onDe
         />
         <StatCell
           icon={<Users className="h-3.5 w-3.5" />}
-          label="Grup Dijangkau"
-          value={stats ? stats.uniqueGroupsSent.toLocaleString('id-ID') : '—'}
+          label="Grup Aktif"
+          value={stats ? stats.activeGroupCount.toLocaleString('id-ID') : '—'}
         />
         <StatCell
           icon={<Radio className="h-3.5 w-3.5" />}

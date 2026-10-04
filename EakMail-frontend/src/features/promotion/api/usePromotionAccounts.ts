@@ -53,7 +53,7 @@ export function useAccountGroups(accountId: string | null) {
 export interface AccountStats {
   totalSent: number;
   totalFailed: number;
-  uniqueGroupsSent: number;
+  activeGroupCount: number;
   campaignCount: number;
   lastSent: { sentAt: string; targetGroup: string; campaignName: string } | null;
 }

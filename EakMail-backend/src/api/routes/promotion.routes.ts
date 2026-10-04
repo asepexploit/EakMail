@@ -91,22 +91,20 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
     const account = await promotionAccountRepository.findById(id);
     if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
 
-    const [statRows, lastSent, sentGroups] = await Promise.all([
+    const [statRows, lastSent, activeGroupCount, campaignCount] = await Promise.all([
       promotionLogRepository.statsByAccount(id),
       promotionLogRepository.lastSentByAccount(id),
-      promotionLogRepository.distinctGroupsByAccount(id),
+      prisma.monitoredGroup.count({ where: { accountId: id, status: 'ACTIVE', canSendMessages: true } }),
+      prisma.campaignAccount.count({ where: { accountId: id } }),
     ]);
 
     const totalSent = statRows.find((r) => r.status === 'SENT')?._count.id ?? 0;
     const totalFailed = statRows.find((r) => r.status === 'FAILED')?._count.id ?? 0;
 
-    // Count campaigns this account participates in
-    const campaignCount = await prisma.campaignAccount.count({ where: { accountId: id } });
-
     return {
       totalSent,
       totalFailed,
-      uniqueGroupsSent: sentGroups.length,
+      activeGroupCount,
       campaignCount,
       lastSent: lastSent
         ? {
