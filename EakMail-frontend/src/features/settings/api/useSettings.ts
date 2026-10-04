@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type PakasirConfigUpdate } from '@/lib/api';
+import { api, type PakasirConfigUpdate, type BotProfileDto } from '@/lib/api';
 import { queryKeys } from '@/lib/query-client';
 import { useToasts } from '@/features/shared/useToasts';
 
@@ -54,5 +54,27 @@ export function useUpdatePakasir() {
       void client.invalidateQueries({ queryKey: queryKeys.settings.current });
     },
     onError: () => toast.error('Gagal menyimpan konfigurasi Pakasir.'),
+  });
+}
+
+export function useBotProfile() {
+  return useQuery({
+    queryKey: ['settings-bot-profile'],
+    queryFn: ({ signal }) => api.settings.getBotProfile(signal),
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+export function useUpdateBotProfile() {
+  const client = useQueryClient();
+  const toast = useToasts();
+  return useMutation({
+    mutationFn: (body: Partial<BotProfileDto>) => api.settings.updateBotProfile(body),
+    onSuccess: () => {
+      toast.success('Profil bot berhasil diperbarui.');
+      void client.invalidateQueries({ queryKey: ['settings-bot-profile'] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Gagal memperbarui profil bot.'),
   });
 }

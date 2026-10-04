@@ -20,6 +20,32 @@ import { toAdminUserDto } from '../../modules/auth/auth.service.js';
 import { getPakasirConfigStatus, savePakasirConfig } from '../../modules/payments/pakasir-config.js';
 import type { AdminUserDto } from '@eakmail/shared-types';
 
+// ---- Bot API helpers -------------------------------------------------------
+
+interface BotApiResult { ok: boolean; result: unknown }
+
+async function botApiGet(token: string, method: string): Promise<string | null> {
+  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: 'POST' });
+  const json = await res.json() as BotApiResult;
+  if (!json.ok) return null;
+  return (json.result as { name?: string; description?: string; short_description?: string })?.name
+    ?? (json.result as { description?: string }).description
+    ?? (json.result as { short_description?: string }).short_description
+    ?? null;
+}
+
+async function botApiSet(token: string, method: string, field: string, value: string): Promise<void> {
+  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ [field]: value }),
+  });
+  const json = await res.json() as BotApiResult;
+  if (!json.ok) throw new Error(`Telegram Bot API error: ${JSON.stringify(json)}`);
+}
+
+// ---------------------------------------------------------------------------
+
 export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   // ---- config status ---------------------------------------------------------
 
@@ -118,5 +144,41 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
     await writeAudit({ adminUserId: admin.id, action: 'auth.totp.disabled' });
     const body: AdminUserDto = toAdminUserDto(updated);
     return body;
+  });
+
+  // ---- Bot profile (name, description, short description) -------------------
+
+  app.get('/bot', { preHandler: requireAuth }, async () => {
+    const token = config.STOREFRONT_BOT_TOKEN;
+    if (!token) {
+      const e = new Error('STOREFRONT_BOT_TOKEN not configured'); (e as any).statusCode = 503; throw e;
+    }
+    const [name, description, shortDescription] = await Promise.all([
+      botApiGet(token, 'getMyName'),
+      botApiGet(token, 'getMyDescription'),
+      botApiGet(token, 'getMyShortDescription'),
+    ]);
+    return { name: name ?? '', description: description ?? '', shortDescription: shortDescription ?? '' };
+  });
+
+  const botProfileSchema = z.object({
+    name: z.string().max(64).optional(),
+    description: z.string().max(512).optional(),
+    shortDescription: z.string().max(120).optional(),
+  });
+
+  app.patch('/bot', { preHandler: requireAuth }, async (req) => {
+    const token = config.STOREFRONT_BOT_TOKEN;
+    if (!token) {
+      const e = new Error('STOREFRONT_BOT_TOKEN not configured'); (e as any).statusCode = 503; throw e;
+    }
+    const body = botProfileSchema.parse(req.body);
+    const tasks: Promise<void>[] = [];
+    if (body.name !== undefined) tasks.push(botApiSet(token, 'setMyName', 'name', body.name));
+    if (body.description !== undefined) tasks.push(botApiSet(token, 'setMyDescription', 'description', body.description));
+    if (body.shortDescription !== undefined) tasks.push(botApiSet(token, 'setMyShortDescription', 'short_description', body.shortDescription));
+    await Promise.all(tasks);
+    void writeAudit({ adminUserId: req.admin?.id, action: 'settings.bot_profile' });
+    return { ok: true };
   });
 }

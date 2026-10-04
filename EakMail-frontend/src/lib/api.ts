@@ -237,6 +237,10 @@ export const api = {
     disableTotp: (code: string) => http.delete<AdminUserDto>('/settings/totp', { body: { code } }),
     updatePakasir: (body: PakasirConfigUpdate) =>
       http.put<PakasirConfigStatus>('/settings/pakasir', body),
+    getBotProfile: (signal?: AbortSignal) =>
+      http.get<BotProfileDto>('/settings/bot', { signal }),
+    updateBotProfile: (body: Partial<BotProfileDto>) =>
+      http.patch<{ ok: boolean }>('/settings/bot', body),
   },
 } as const;
 
@@ -302,6 +306,12 @@ export interface SettingsDto {
     telegramConfigured: boolean;
   };
   pakasir: PakasirConfigStatus;
+}
+
+export interface BotProfileDto {
+  name: string;
+  description: string;
+  shortDescription: string;
 }
 
 export type Api = typeof api;

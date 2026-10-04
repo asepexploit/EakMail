@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
+import { Bot, Loader2 } from 'lucide-react';
 import { Badge, Button, Card, Input, SecretField } from '@/components/ui';
 import { strings } from '@/lib/strings';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { QueryBoundary } from '@/features/shared/QueryBoundary';
 import { featureStrings } from '@/features/shared/feature-strings';
 import { useCurrentUser } from '@/features/auth/useAuth';
-import { useSettings, useSetupTotp, useEnableTotp, useDisableTotp, useUpdatePakasir } from '@/features/settings/api/useSettings';
+import {
+  useSettings, useSetupTotp, useEnableTotp, useDisableTotp, useUpdatePakasir,
+  useBotProfile, useUpdateBotProfile,
+} from '@/features/settings/api/useSettings';
 import type { PakasirConfigUpdate } from '@/lib/api';
 import { cn } from '@/lib/cn';
 
@@ -28,6 +32,20 @@ export function SettingsPage() {
   const enableTotp = useEnableTotp();
   const disableTotp = useDisableTotp();
   const updatePakasir = useUpdatePakasir();
+  const botProfileQuery = useBotProfile();
+  const updateBotProfile = useUpdateBotProfile();
+
+  const [botDraft, setBotDraft] = useState({ name: '', description: '', shortDescription: '' });
+
+  useEffect(() => {
+    if (botProfileQuery.data) {
+      setBotDraft({
+        name: botProfileQuery.data.name,
+        description: botProfileQuery.data.description,
+        shortDescription: botProfileQuery.data.shortDescription,
+      });
+    }
+  }, [botProfileQuery.data]);
 
   const settings = settingsQuery.data;
   const totpEnabled = userQuery.data?.totpEnabled ?? false;
@@ -302,6 +320,78 @@ export function SettingsPage() {
                 </Button>
               </div>
             </div>
+          </Card>
+
+          {/* Bot profile card */}
+          <Card className="lg:col-span-2">
+            <div className="mb-4 flex items-center gap-2">
+              <Bot className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold text-text">Profil Bot Telegram</h3>
+            </div>
+
+            {botProfileQuery.isLoading ? (
+              <div className="flex items-center gap-2 py-4 text-text-muted">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Mengambil profil bot...</span>
+              </div>
+            ) : botProfileQuery.isError ? (
+              <p className="text-sm text-danger">
+                Gagal mengambil profil bot. Pastikan STOREFRONT_BOT_TOKEN sudah dikonfigurasi.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {/* Current info preview */}
+                {botProfileQuery.data && (
+                  <div className="rounded-lg border border-border bg-surface/60 px-3 py-2.5 text-xs text-text-muted space-y-0.5">
+                    <p className="font-medium text-text-muted/80 mb-1">Profil saat ini</p>
+                    <p><span className="text-text-muted/60">Nama: </span><span className="text-text">{botProfileQuery.data.name || '—'}</span></p>
+                    <p><span className="text-text-muted/60">Deskripsi: </span><span className="text-text">{botProfileQuery.data.description || '—'}</span></p>
+                    <p><span className="text-text-muted/60">Deskripsi singkat: </span><span className="text-text">{botProfileQuery.data.shortDescription || '—'}</span></p>
+                  </div>
+                )}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Input
+                    label="Nama bot"
+                    placeholder="Nama tampilan bot (maks 64 karakter)"
+                    value={botDraft.name}
+                    onChange={(e) => setBotDraft((d) => ({ ...d, name: e.target.value }))}
+                    maxLength={64}
+                  />
+                  <Input
+                    label="Deskripsi singkat"
+                    placeholder="Ditampilkan di profil bot (maks 120 karakter)"
+                    value={botDraft.shortDescription}
+                    onChange={(e) => setBotDraft((d) => ({ ...d, shortDescription: e.target.value }))}
+                    maxLength={120}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-text">
+                    Deskripsi bot
+                  </label>
+                  <textarea
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                    rows={4}
+                    maxLength={512}
+                    placeholder="Ditampilkan saat pengguna membuka bot pertama kali — 'Apa yang bisa bot ini lakukan?' (maks 512 karakter)"
+                    value={botDraft.description}
+                    onChange={(e) => setBotDraft((d) => ({ ...d, description: e.target.value }))}
+                  />
+                  <p className="mt-1 text-xs text-text-muted text-right">
+                    {botDraft.description.length}/512
+                  </p>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => updateBotProfile.mutate(botDraft)}
+                    isLoading={updateBotProfile.isPending}
+                  >
+                    Simpan Profil Bot
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
         </div>
       </QueryBoundary>
