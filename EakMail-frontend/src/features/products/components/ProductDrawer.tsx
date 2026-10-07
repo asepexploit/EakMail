@@ -38,6 +38,7 @@ interface ProductFormState {
   stockMode: StockMode;
   stock: number;
   active: boolean;
+  isEakTele: boolean;
   externalProductId: string | null;
   deliveryTemplate: string | null;
   options: OptionRow[];
@@ -56,6 +57,7 @@ function toForm(product: ProductDto | null): ProductFormState {
       stockMode: StockMode.MANUAL,
       stock: 0,
       active: true,
+      isEakTele: false,
       externalProductId: null,
       deliveryTemplate: null,
       options: [],
@@ -72,6 +74,7 @@ function toForm(product: ProductDto | null): ProductFormState {
     stockMode: product.stockMode,
     stock: product.stock,
     active: product.active,
+    isEakTele: product.isEakTele,
     externalProductId: product.externalProductId,
     deliveryTemplate: product.deliveryTemplate,
     options: product.options.map((o) => ({ key: o.key, value: o.value, price: o.price })),
@@ -245,6 +248,16 @@ export function ProductDrawer({ open, onClose, product, onSubmit, isSubmitting }
             className="accent-brand"
           />
           {featureStrings.products.active}
+        </label>
+
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-text">
+          <input
+            type="checkbox"
+            checked={form.isEakTele}
+            onChange={(e) => setForm((prev) => ({ ...prev, isEakTele: e.target.checked }))}
+            className="accent-brand"
+          />
+          Produk EakTele (dijual lewat bot akun Telegram)
         </label>
 
         <div className="space-y-2">
