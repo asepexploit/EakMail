@@ -6,8 +6,10 @@
  * and immediately replies with the configured message, directing users to order
  * via the configured bot.
  *
- * Pattern mirrors auto-join-monitor.ts (in-memory registry, start/stop per
- * account, startAll on boot).
+ * Key GramJS gotchas applied here:
+ * 1. addEventHandler MUST be called BEFORE start(), otherwise early updates are missed.
+ * 2. event.isPrivate requires entity fetch; use peerId.className instead.
+ * 3. Call getDialogs() after start() to trigger update-state sync with Telegram.
  */
 import { logger } from '../../lib/logger.js';
 import { decrypt } from '../../lib/crypto.js';
@@ -35,7 +37,7 @@ export async function startAutoReply(accountId: string): Promise<void> {
   const replyText = account.autoReplyMessage?.trim() || DEFAULT_AUTO_REPLY;
 
   try {
-    const { TelegramClient, StringSession, NewMessage } = await loadGramjs();
+    const { TelegramClient, StringSession, NewMessage, Api } = await loadGramjs();
     const { config } = await import('../../config/index.js');
     const sessionString = decrypt(account.sessionEnc);
 
@@ -47,36 +49,49 @@ export async function startAutoReply(accountId: string): Promise<void> {
       { connectionRetries: 5, autoReconnect: true },
     );
 
-    // start() (not connect()) is required to activate the GramJS update loop
-    // so that addEventHandler actually fires. With an existing valid session the
-    // phone/code/password callbacks are never invoked.
-    await client.start({
-      phoneNumber: async () => account.phone,
-      phoneCode: async () => { throw new Error('session should already exist'); },
-      password: async () => { throw new Error('2FA not supported in auto-reply start'); },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      onError: (err: any) => log.warn({ accountId, err }, 'auto-reply client error'),
-    });
-
-    // Handler: fires on every new message; we filter to private incoming only
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handler = async (event: any) => {
       try {
-        // Only private DMs (not groups or channels)
-        if (!event.isPrivate) return;
-        // Don't reply to our own outgoing messages
-        if (event.message?.out) return;
+        const msg = event.message;
+        if (!msg) return;
 
-        // Use GramJS respond() which handles the peer resolution automatically
-        await event.message.respond({ message: replyText });
-        log.info({ accountId }, 'auto-reply sent');
+        // Skip outgoing messages
+        if (msg.out) return;
+
+        // Only private DMs — peerId.className is reliably set on raw messages
+        // without needing entity fetch (unlike event.isPrivate)
+        const peerClass: string = msg.peerId?.className ?? '';
+        if (peerClass !== 'PeerUser') return;
+
+        // Reply using the sender's peer directly
+        await client.invoke(new Api.messages.SendMessage({
+          peer: msg.peerId,
+          message: replyText,
+          randomId: BigInt(Math.floor(Math.random() * 1e15)),
+        }));
+        log.info({ accountId, peer: String(msg.peerId?.userId) }, 'auto-reply sent');
       } catch (err) {
         log.warn({ accountId, err }, 'auto-reply send failed');
       }
     };
 
+    // IMPORTANT: register handler BEFORE start() so no early updates are missed
     const filter = new NewMessage({});
     client.addEventHandler(handler, filter);
+
+    // start() activates the GramJS update loop. With a valid existing session
+    // the phone/code/password callbacks are never invoked.
+    await client.start({
+      phoneNumber: async () => account.phone,
+      phoneCode: async () => { throw new Error('session already exists'); },
+      password: async () => { throw new Error('2FA not supported in auto-reply'); },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      onError: (err: Error) => log.warn({ accountId, err }, 'auto-reply client error'),
+    });
+
+    // Warm up the update state — Telegram won't push updates until the client
+    // has synced its update sequence; getDialogs triggers that sync.
+    await client.getDialogs({ limit: 1 }).catch(() => undefined);
 
     const stop = () => {
       try {
@@ -116,7 +131,7 @@ export async function startAllAutoReplies(): Promise<void> {
 // ---- lazy GramJS loader -------------------------------------------------------
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type G = any;
-interface GramjsBundle { TelegramClient: G; StringSession: G; NewMessage: G }
+interface GramjsBundle { TelegramClient: G; StringSession: G; NewMessage: G; Api: G }
 let bundle: GramjsBundle | null = null;
 
 async function loadGramjs(): Promise<GramjsBundle> {
@@ -128,6 +143,7 @@ async function loadGramjs(): Promise<GramjsBundle> {
     TelegramClient: (tg as G).TelegramClient,
     StringSession: (sessions as G).StringSession,
     NewMessage: (events as G).NewMessage,
+    Api: (tg as G).Api,
   };
   return bundle;
 }
