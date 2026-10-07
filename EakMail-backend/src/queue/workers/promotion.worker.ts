@@ -20,7 +20,7 @@ import { promotionLogRepository } from '../../modules/promotion/promotion.reposi
 import { promotionAccountService } from '../../modules/promotion/promotion-account.service.js';
 import { sendPromotionMessagesBatch } from '../../modules/promotion/promotion-sender.js';
 import { monitoredGroupRepository } from '../../modules/monitor/monitor.repository.js';
-import { leaveReadOnlyGroupsBulk } from '../../modules/monitor/monitor-groups.service.js';
+import { leaveReadOnlyGroupsBulk, leaveGroup } from '../../modules/monitor/monitor-groups.service.js';
 import { prisma } from '../../db/client.js';
 import type { WorkerBuildDeps } from './types.js';
 
@@ -160,6 +160,11 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
             void monitoredGroupRepository.markReadOnlyByTarget(account.id, target).catch(() => undefined);
           } else if (result.errorType === 'NOT_FOUND') {
             void monitoredGroupRepository.markLeftByTarget(account.id, target).catch(() => undefined);
+            // For invite-link targets stored as chatId: physically leave on Telegram.
+            // markLeftByTarget only updates the DB; without this the account stays in the group.
+            if (/(?:https?:\/\/)?t\.me\/(?:\+|joinchat\/)/.test(target)) {
+              void leaveGroup(account.id, account.sessionEnc!, target).catch(() => undefined);
+            }
           }
 
           if (result.floodWaitSeconds) {

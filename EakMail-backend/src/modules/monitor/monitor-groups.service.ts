@@ -281,9 +281,23 @@ export async function leaveReadOnlyGroupsBulk(accountId: string, sessionEnc: str
   try {
     for (const group of readOnly) {
       try {
-        const entityInput = group.username ?? group.chatId;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const peer: any = await client.getInputEntity(entityInput);
+        let peer: any;
+        const isInviteLink = /(?:https?:\/\/)?t\.me\/(?:\+|joinchat\/)/.test(group.chatId);
+        if (isInviteLink) {
+          // Legacy broken record: chatId was stored as invite link URL.
+          // Use CheckChatInvite to get the actual channel entity.
+          const hash = extractInviteHash(group.chatId);
+          if (!hash) throw new Error('no invite hash');
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const inv: any = await client.invoke(new Api.messages.CheckChatInvite({ hash }));
+          const entity = inv?.chat;
+          if (!entity) throw new Error('no chat entity from CheckChatInvite');
+          peer = await client.getInputEntity(entity);
+        } else {
+          const entityInput = group.username ?? group.chatId;
+          peer = await client.getInputEntity(entityInput);
+        }
         await client.invoke(new Api.channels.LeaveChannel({ channel: peer }));
         await repo.setStatus(group.id, 'LEFT', new Date());
         left++;
@@ -301,7 +315,7 @@ export async function leaveReadOnlyGroupsBulk(accountId: string, sessionEnc: str
   return left;
 }
 
-/** Leave a specific group manually. */
+/** Leave a specific group manually. Handles both numeric chatIds and invite links. */
 export async function leaveGroup(accountId: string, sessionEnc: string, chatId: string): Promise<void> {
   const { TelegramClient, StringSession, Api } = await loadGramjs();
   const { config } = await import('../../config/index.js');
@@ -313,10 +327,22 @@ export async function leaveGroup(accountId: string, sessionEnc: string, chatId: 
   );
   try {
     await client.connect();
-    const entityInput = resolveEntityInput(chatId);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const peer: any = await client.getInputEntity(entityInput);
+    let peer: any;
+    const isInviteLink = /(?:https?:\/\/)?t\.me\/(?:\+|joinchat\/)/.test(chatId);
+    if (isInviteLink) {
+      const hash = extractInviteHash(chatId);
+      if (!hash) throw new Error('no invite hash');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const inv: any = await client.invoke(new Api.messages.CheckChatInvite({ hash }));
+      const entity = inv?.chat;
+      if (!entity) throw new Error('CheckChatInvite returned no chat');
+      peer = await client.getInputEntity(entity);
+    } else {
+      peer = await client.getInputEntity(resolveEntityInput(chatId));
+    }
     await client.invoke(new Api.channels.LeaveChannel({ channel: peer }));
+    log.info({ accountId, chatId }, 'left group');
   } finally {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (client as any)._destroyed = true;
