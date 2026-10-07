@@ -518,3 +518,22 @@ export interface BulkJoinJobDto {
   createdAt: string;
   groups?: BulkJoinGroupResult[]; // only in detail response
 }
+
+// ── Telegram Dialogs (direct from MTProto, not DB) ────────────────────────────
+
+export type TelegramDialogType = 'group' | 'channel' | 'chat';
+
+export interface TelegramDialogItem {
+  id: string;
+  title: string;
+  username: string | null;
+  type: TelegramDialogType;
+  memberCount: number | null;
+}
+
+export interface TelegramDialogsResult {
+  groups: TelegramDialogItem[];
+  channels: TelegramDialogItem[];
+  chats: TelegramDialogItem[];
+  total: number;
+}

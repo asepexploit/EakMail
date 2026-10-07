@@ -14,6 +14,7 @@ import { fetchAccountGroups } from '../../modules/promotion/promotion-groups.js'
 import { startMonitor, stopMonitor, isMonitorRunning } from '../../modules/promotion/auto-join-monitor.js';
 import { checkAndLeaveIfReadOnly } from '../../modules/monitor/monitor-groups.service.js';
 import { getTelegramProfile, updateTelegramProfile } from '../../modules/promotion/promotion-profile.js';
+import { fetchAllDialogs } from '../../modules/promotion/promotion-dialogs.js';
 
 const idParam = z.object({ id: z.string().min(1) });
 
@@ -97,6 +98,15 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
     if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
     if (!account.sessionEnc) { const e = new Error('No active session'); (e as any).statusCode = 400; throw e; }
     return getTelegramProfile(account.sessionEnc);
+  });
+
+  /** GET /accounts/:id/dialogs — fetch all groups/channels/chats from Telegram directly (MTProto). */
+  app.get('/accounts/:id/dialogs', async (req) => {
+    const { id } = idParam.parse(req.params);
+    const account = await promotionAccountRepository.findById(id);
+    if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
+    if (!account.sessionEnc) { const e = new Error('No active session'); (e as any).statusCode = 400; throw e; }
+    return fetchAllDialogs(account.sessionEnc);
   });
 
   /** PATCH /accounts/:id/profile — update Telegram profile (name, username, bio, photo). */

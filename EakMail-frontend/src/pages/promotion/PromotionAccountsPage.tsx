@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Wifi, WifiOff, Clock, Ban, Plus, Trash2, KeyRound, Send, Users, Radio, AlertCircle, UserPen } from 'lucide-react';
+import { Wifi, WifiOff, Clock, Ban, Plus, Trash2, KeyRound, Send, Users, Radio, AlertCircle, UserPen, Search } from 'lucide-react';
 import { AccountJoinPanel } from '@/features/promotion/components/AccountJoinPanel';
 import { AutoJoinSettings } from '@/features/promotion/components/AutoJoinSettings';
 import { JoinAllPanel } from '@/features/promotion/components/JoinAllPanel';
 import { BulkJoinScheduledPanel } from '@/features/promotion/components/BulkJoinScheduledPanel';
 import { ProfileEditModal } from '@/features/promotion/components/ProfileEditModal';
+import { TelegramDialogsModal } from '@/features/promotion/components/TelegramDialogsModal';
 import type { PromotionAccountDto } from '@eakmail/shared-types';
 import { PromotionAccountStatus } from '@eakmail/shared-types';
 import {
@@ -216,6 +217,7 @@ function AccountCard({ account, onDelete }: { account: PromotionAccountDto; onDe
   const { data: stats } = useAccountStats(account.id);
   const isConnected = account.status === PromotionAccountStatus.CONNECTED;
   const [profileOpen, setProfileOpen] = useState(false);
+  const [dialogsOpen, setDialogsOpen] = useState(false);
 
   return (
     <Card className="flex flex-col gap-0 p-0 overflow-hidden">
@@ -237,6 +239,15 @@ function AccountCard({ account, onDelete }: { account: PromotionAccountDto; onDe
           <p className="mt-0.5 text-xs text-text-muted font-mono">+{account.phone}</p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {isConnected && (
+            <button
+              onClick={() => setDialogsOpen(true)}
+              className="rounded p-1.5 text-text-muted hover:bg-brand/10 hover:text-brand focus:outline-none transition-colors"
+              title="Cek grup & channel Telegram"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+          )}
           {isConnected && (
             <button
               onClick={() => setProfileOpen(true)}
@@ -261,6 +272,12 @@ function AccountCard({ account, onDelete }: { account: PromotionAccountDto; onDe
         accountLabel={account.label}
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
+      />
+      <TelegramDialogsModal
+        accountId={account.id}
+        accountLabel={account.label}
+        open={dialogsOpen}
+        onClose={() => setDialogsOpen(false)}
       />
 
       {/* Stats grid */}
