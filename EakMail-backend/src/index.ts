@@ -15,6 +15,7 @@ import { prisma, disconnectPrisma } from './db/client.js';
 import { logger } from './lib/logger.js';
 import { buildServer } from './api/server.js';
 import { buildBot, type StorefrontBot } from './telegram/bot/index.js';
+import { buildEakTeleBot, type EakTeleBot } from './telegram/eaktele/index.js';
 // Single source of truth for the worker set (includes broadcast). Do not re-list workers here.
 import { startWorkers } from './queue/workers/index.js';
 import { startPaymentSweep } from './modules/payments/payment-sweep.js';
@@ -41,6 +42,10 @@ async function main(): Promise<void> {
   const bot: StorefrontBot = await buildBot();
   await bot.start();
 
+  // EakTele bot — always built, no-op when EAKTELE_BOT_TOKEN is unset or USE_MOCKS=true.
+  const eakTeleBot: EakTeleBot = await buildEakTeleBot();
+  await eakTeleBot.start();
+
   await app.listen({ host: config.HOST, port: config.PORT });
   log.info({ host: config.HOST, port: config.PORT, mockBot: bot.isMock }, 'server listening');
 
@@ -56,6 +61,7 @@ async function main(): Promise<void> {
     try {
       await app.close();
       await bot.stop(signal);
+      await eakTeleBot.stop(signal);
       stopSweep();
       await workers.stop();
       await disconnectPrisma();

@@ -34,7 +34,14 @@ const schema = z.object({
   // Comma-separated Telegram channel usernames (e.g. "@eakmails,@channel2").
   // Users must join ALL listed channels before using the storefront bot.
   // Empty = gate disabled.
-  REQUIRED_JOIN_CHANNELS: z.string().default(''),
+  REQUIRED_JOIN_CHANNELS: z.string().default('@eakmails'),
+
+  // EakTele bot credentials
+  EAKTELE_BOT_TOKEN: z.string().default(''),
+  EAKTELE_REQUIRED_JOIN: z.string().default('@eakmails'),
+  // Telegram API credentials for EakTele GramJS OTP reader (fallback to TELEGRAM_API_ID/HASH)
+  EAKTELE_API_ID: z.coerce.number().default(0),
+  EAKTELE_API_HASH: z.string().default(''),
 });
 
 export type AppConfig = z.infer<typeof schema>;

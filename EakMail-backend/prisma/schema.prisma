@@ -164,9 +164,10 @@ model Product {
   externalProductId   String?         // id produk di supplier API eksternal
   active              Boolean         @default(true)
   createdAt  DateTime        @default(now())
-  options    ProductOption[]
-  orders     Order[]
-  stockItems StockItem[]
+  options         ProductOption[]
+  orders          Order[]
+  stockItems      StockItem[]
+  telegramStocks  TelegramAccountStock[]
 }
 
 model StockItem {
@@ -377,6 +378,40 @@ model PakasirConfig {
   slug          String?
   apiKeyEnc     String?
   webhookSecEnc String?
+}
+
+// ── EakTele System ────────────────────────────────────────────────────────────
+
+enum TelegramAccountStockStatus {
+  AVAILABLE   // siap dijual, session aktif
+  RESERVED    // sedang checkout (lock sementara)
+  SOLD        // sudah terjual
+  INVALID     // session expired / banned / gagal connect
+  NO_SESSION  // akun ditambahkan tapi belum ada session string
+}
+
+model TelegramAccountStock {
+  id                 String                      @id @default(cuid())
+  productId          String
+  product            Product                     @relation(fields: [productId], references: [id])
+  phone              String
+  password2faEnc     String?                     // 2FA password, encrypted. null = no 2FA
+  sessionEnc         String?                     // GramJS session string, encrypted. null = no session yet
+  apiId              Int?                        // per-account API ID (fallback to EAKTELE_API_ID)
+  apiHashEnc         String?                     // per-account API hash, encrypted
+  status             TelegramAccountStockStatus  @default(NO_SESSION)
+  isSessionActive    Boolean                     @default(false)
+  isLoggedOutByBuyer Boolean                     @default(false)  // buyer confirmed logout
+  orderId            String?                     @unique           // set when SOLD
+  soldAt             DateTime?
+  lastOtpRequestAt   DateTime?
+  otpRequestCount    Int                         @default(0)
+  notes              String?
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+
+  @@index([productId, status])
+  @@index([status])
 }
 
 // ── Promotion System ──────────────────────────────────────────────────────────

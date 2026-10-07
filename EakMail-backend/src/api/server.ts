@@ -26,6 +26,7 @@ import { suppliersRoutes } from './routes/suppliers.routes.js';
 import { workflowsRoutes } from './routes/workflows.routes.js';
 import { promotionRoutes } from './routes/promotion.routes.js';
 import { monitorRoutes } from './routes/monitor.routes.js';
+import { eakTeleRoutes } from './routes/eaktele.routes.js';
 import { executionStreamHandler } from './ws/execution-stream.js';
 
 /**
@@ -68,6 +69,7 @@ export async function buildServer() {
       await api.register(executionsRoutes);
       await api.register(promotionRoutes, { prefix: '/promotion' });
       await api.register(monitorRoutes, { prefix: '/monitor' });
+      await api.register(eakTeleRoutes, { prefix: '/eaktele' });
     },
     { prefix: '/api' },
   );
