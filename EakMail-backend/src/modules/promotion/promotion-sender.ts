@@ -221,6 +221,16 @@ async function sendOne(
       log.info({ target }, 'banned in channel — will mark READ_ONLY');
       return { ok: false, error: msg, errorType: 'BANNED' };
     }
+    // Paid group — account cannot post without subscribing → treat as write-forbidden
+    if (msg.includes('ALLOW_PAYMENT_REQUIRED')) {
+      log.info({ target }, 'payment required to post — will mark READ_ONLY and leave');
+      return { ok: false, error: msg, errorType: 'WRITE_FORBIDDEN' };
+    }
+    // Channel became private or account was kicked/no longer a member
+    if (msg.includes('CHANNEL_PRIVATE') || msg.includes('ChannelPrivateError')) {
+      log.info({ target }, 'channel private / no longer member — will mark LEFT');
+      return { ok: false, error: msg, errorType: 'NOT_FOUND' };
+    }
 
     log.warn({ target, err }, 'promotion send failed');
     return { ok: false, error: msg, errorType: 'OTHER' };
