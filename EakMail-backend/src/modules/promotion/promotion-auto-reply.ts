@@ -49,28 +49,24 @@ export async function startAutoReply(accountId: string): Promise<void> {
 
     await client.connect();
 
-    // Handler: fires on every incoming private (DM) message
+    // Handler: fires on every new message; we filter to private incoming only
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handler = async (event: any) => {
       try {
-        const msg = event.message;
-        if (!msg || !msg.peerId) return;
+        // Only private DMs (not groups or channels)
+        if (!event.isPrivate) return;
+        // Don't reply to our own outgoing messages
+        if (event.message?.out) return;
 
-        // Only handle private messages (PeerUser)
-        const cls: string = msg.peerId.className ?? '';
-        if (cls !== 'PeerUser') return;
-
-        // Don't reply to ourselves (outgoing)
-        if (msg.out) return;
-
-        await client.sendMessage(msg.peerId.userId, { message: replyText });
-        log.info({ accountId, from: String(msg.peerId.userId) }, 'auto-reply sent');
+        // Use GramJS respond() which handles the peer resolution automatically
+        await event.message.respond({ message: replyText });
+        log.info({ accountId }, 'auto-reply sent');
       } catch (err) {
         log.warn({ accountId, err }, 'auto-reply send failed');
       }
     };
 
-    const filter = new NewMessage({ incoming: true });
+    const filter = new NewMessage({});
     client.addEventHandler(handler, filter);
 
     const stop = () => {
