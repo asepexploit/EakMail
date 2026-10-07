@@ -47,7 +47,16 @@ export async function startAutoReply(accountId: string): Promise<void> {
       { connectionRetries: 5, autoReconnect: true },
     );
 
-    await client.connect();
+    // start() (not connect()) is required to activate the GramJS update loop
+    // so that addEventHandler actually fires. With an existing valid session the
+    // phone/code/password callbacks are never invoked.
+    await client.start({
+      phoneNumber: async () => account.phone,
+      phoneCode: async () => { throw new Error('session should already exist'); },
+      password: async () => { throw new Error('2FA not supported in auto-reply start'); },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      onError: (err: any) => log.warn({ accountId, err }, 'auto-reply client error'),
+    });
 
     // Handler: fires on every new message; we filter to private incoming only
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
