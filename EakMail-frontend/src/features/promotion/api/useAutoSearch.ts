@@ -21,6 +21,8 @@ interface QueueStats {
 interface QueueItem {
   id: string;
   accountId: string;
+  accountLabel: string;
+  accountPhone: string;
   chatId: string;
   username: string | null;
   title: string;

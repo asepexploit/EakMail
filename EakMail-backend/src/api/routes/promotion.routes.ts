@@ -622,7 +622,20 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
       status: z.string().optional(),
       limit: z.coerce.number().min(1).max(200).optional(),
     }).parse(req.query);
-    return getQueueItems(status, limit);
+    const items = await getQueueItems(status, limit);
+
+    // Enrich with account label/phone
+    const accountIds = [...new Set(items.map((i) => i.accountId))];
+    const accounts = await prisma.promotionAccount.findMany({
+      where: { id: { in: accountIds } },
+      select: { id: true, label: true, phone: true },
+    });
+    const accountMap = new Map(accounts.map((a) => [a.id, a]));
+
+    return items.map((item) => {
+      const acc = accountMap.get(item.accountId);
+      return { ...item, accountLabel: acc?.label ?? '?', accountPhone: acc?.phone ?? '' };
+    });
   });
 
   app.delete('/auto-search/queue', async (req) => {

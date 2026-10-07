@@ -221,6 +221,7 @@ export function AutoSearchPanel() {
                       <th className="px-3 py-2 text-left">Grup</th>
                       <th className="px-3 py-2 text-left hidden sm:table-cell">Keyword</th>
                       <th className="px-3 py-2 text-left hidden md:table-cell">Member</th>
+                      <th className="px-3 py-2 text-left hidden lg:table-cell">Akun</th>
                       <th className="px-3 py-2 text-left">Status</th>
                     </tr>
                   </thead>
@@ -238,6 +239,10 @@ export function AutoSearchPanel() {
                           <td className="px-3 py-2 text-text-muted hidden sm:table-cell">{item.keyword}</td>
                           <td className="px-3 py-2 text-text-muted hidden md:table-cell">
                             {item.memberCount?.toLocaleString('id-ID') ?? '—'}
+                          </td>
+                          <td className="px-3 py-2 hidden lg:table-cell">
+                            <div className="text-text text-[11px] font-medium truncate max-w-[120px]">{item.accountLabel}</div>
+                            <div className="text-text-muted text-[10px]">+{item.accountPhone}</div>
                           </td>
                           <td className="px-3 py-2">
                             <div className={`flex items-center gap-1 ${cfg.color}`}>
