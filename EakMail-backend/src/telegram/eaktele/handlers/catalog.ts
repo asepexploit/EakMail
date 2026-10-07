@@ -2,13 +2,18 @@
 import type { Context } from 'telegraf';
 import { S } from '../i18n/strings.js';
 import { mainMenuKeyboard, catalogProductKeyboard, ACTION } from '../keyboards.js';
-import { listProducts, getProduct } from '../../../modules/products/product.service.js';
+import { getProduct } from '../../../modules/products/product.service.js';
 import { stockRepository } from '../../../modules/eaktele/stock.repository.js';
+import { prisma } from '../../../db/client.js';
 
 export async function handleCatalog(ctx: Context): Promise<void> {
-  const products = await listProducts();
-  // Hanya tampilkan produk aktif yang punya stok EakTele
-  const aktif = products.filter((p) => p.active);
+  // Hanya produk aktif yang isEakTele=true (produk khusus jual akun Telegram)
+  const rawProducts = await prisma.product.findMany({
+    where: { active: true, isEakTele: true },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, name: true, price: true },
+  });
+  const aktif = rawProducts;
 
   if (aktif.length === 0) {
     await ctx.reply(S.CATALOG_EMPTY, { parse_mode: 'Markdown', ...mainMenuKeyboard() });

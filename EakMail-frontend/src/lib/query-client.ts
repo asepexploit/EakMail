@@ -59,4 +59,8 @@ export const queryKeys = {
     audit: (params?: unknown) => ['logs', 'audit', params] as const,
   },
   settings: { current: ['settings'] as const },
+  eaktele: {
+    all: ['eaktele'] as const,
+    stock: (params?: unknown) => ['eaktele', 'stock', params] as const,
+  },
 } as const;

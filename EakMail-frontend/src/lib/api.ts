@@ -242,6 +242,32 @@ export const api = {
     updateBotProfile: (body: Partial<BotProfileDto>) =>
       http.patch<{ ok: boolean }>('/settings/bot', body),
   },
+
+  eaktele: {
+    listStock: (params?: { productId?: string; status?: string }, signal?: AbortSignal) =>
+      http.get<EakTeleStockDto[]>('/eaktele/stock', { query: params, signal }),
+    addStock: (body: AddEakTeleStockRequest) =>
+      http.post<EakTeleStockDto>('/eaktele/stock', body),
+    bulkImport: (body: { productId: string; lines: string[] }) =>
+      http.post<{ total: number; ok: number; results: { phone: string; ok: boolean; error?: string }[] }>(
+        '/eaktele/stock/bulk',
+        body,
+      ),
+    deleteStock: (id: string) => http.delete<{ ok: boolean }>(`/eaktele/stock/${id}`),
+    updateNotes: (id: string, notes: string) =>
+      http.patch<EakTeleStockDto>(`/eaktele/stock/${id}/notes`, { notes }),
+    countByStatus: (productId: string, signal?: AbortSignal) =>
+      http.get<Record<string, number>>(`/eaktele/stock/${productId}/count`, { signal }),
+    loginStart: (body: { productId: string; phone: string; password2fa?: string; notes?: string }) =>
+      http.post<{ stockId: string; loginId: string; phoneCodeHash: string }>(
+        '/eaktele/stock/login/start',
+        body,
+      ),
+    loginSubmit: (body: { stockId: string; loginId: string; code: string; password?: string }) =>
+      http.post<{ ok: boolean }>('/eaktele/stock/login/submit', body),
+    loginAbort: (loginId: string) =>
+      http.post<{ ok: boolean }>('/eaktele/stock/login/abort', { loginId }),
+  },
 } as const;
 
 /** System status response (GET /api/status). Mirrors the backend status route. */
@@ -312,6 +338,34 @@ export interface BotProfileDto {
   name: string;
   description: string;
   shortDescription: string;
+}
+
+export type EakTeleStockStatus = 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'INVALID' | 'NO_SESSION';
+
+export interface EakTeleStockDto {
+  id: string;
+  productId: string;
+  phone: string;
+  status: EakTeleStockStatus;
+  isSessionActive: boolean;
+  isLoggedOutByBuyer: boolean;
+  orderId: string | null;
+  soldAt: string | null;
+  lastOtpRequestAt: string | null;
+  otpRequestCount: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AddEakTeleStockRequest {
+  productId: string;
+  phone: string;
+  password2fa?: string;
+  sessionString?: string;
+  apiId?: number;
+  apiHash?: string;
+  notes?: string;
 }
 
 export type Api = typeof api;

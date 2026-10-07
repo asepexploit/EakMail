@@ -21,6 +21,7 @@ export const strings = {
       bot: 'BOT',
       promosi: 'PROMOSI',
       monitor: 'MONITOR GRUP',
+      eaktele: 'EAKTELE',
       builder: 'BUILDER',
       sistem: 'SISTEM',
     },
@@ -46,6 +47,7 @@ export const strings = {
     monitorGroups: 'Grup & Channel',
     monitorActivity: 'Aktivitas Live',
     monitorMessages: 'Log Pesan',
+    eakteleStock: 'Stok Akun Telegram',
   },
 
   /** Reusable action labels. */

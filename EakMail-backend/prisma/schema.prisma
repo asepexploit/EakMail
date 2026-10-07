@@ -163,6 +163,7 @@ model Product {
   deliveryTemplate    String?
   externalProductId   String?         // id produk di supplier API eksternal
   active              Boolean         @default(true)
+  isEakTele           Boolean         @default(false) // produk khusus bot EakTele (jual akun Telegram)
   createdAt  DateTime        @default(now())
   options         ProductOption[]
   orders          Order[]

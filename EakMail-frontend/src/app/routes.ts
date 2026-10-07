@@ -27,6 +27,7 @@ export const routes = {
   monitorGroups: '/monitor/groups',
   monitorActivity: '/monitor/activity',
   monitorMessages: '/monitor/messages',
+  eakteleStock: '/eaktele/stock',
 } as const;
 
 export type RouteKey = keyof typeof routes;

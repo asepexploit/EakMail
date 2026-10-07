@@ -40,6 +40,7 @@ function toDto(product: ProductWithOptions): ProductDto {
     deliveryTemplate: product.deliveryTemplate ?? null,
     externalProductId: product.externalProductId ?? null,
     active: product.active,
+    isEakTele: product.isEakTele,
     options: product.options.map(toOptionDto),
   };
 }
@@ -76,6 +77,7 @@ export async function createProduct(input: UpsertProductRequest): Promise<Produc
     deliveryTemplate: input.deliveryTemplate ?? null,
     externalProductId: input.externalProductId ?? null,
     active: input.active ?? true,
+    isEakTele: input.isEakTele ?? false,
     supplier: input.supplierId ? { connect: { id: input.supplierId } } : undefined,
     workflow: input.workflowId ? { connect: { id: input.workflowId } } : undefined,
     options: { createMany: { data: toOptionRows(input.options) } },
@@ -104,6 +106,7 @@ export async function updateProduct(
       deliveryTemplate: input.deliveryTemplate !== undefined ? (input.deliveryTemplate ?? null) : existing.deliveryTemplate,
       externalProductId: input.externalProductId !== undefined ? (input.externalProductId ?? null) : existing.externalProductId,
       active: input.active ?? existing.active,
+      isEakTele: input.isEakTele ?? existing.isEakTele,
       // Reconnect (or clear) relations explicitly so an omitted id detaches.
       supplier: input.supplierId
         ? { connect: { id: input.supplierId } }

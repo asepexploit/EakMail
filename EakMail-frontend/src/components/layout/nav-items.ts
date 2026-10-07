@@ -14,6 +14,7 @@ import {
   Settings,
   ShoppingCart,
   ScanEye,
+  Smartphone,
   Truck,
   Users,
   Workflow,
@@ -88,6 +89,12 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: routes.workflowBuilder, label: strings.nav.workflowBuilder, icon: Workflow },
       { to: routes.docs, label: strings.nav.docs, icon: BookOpen },
+    ],
+  },
+  {
+    label: strings.nav.groups.eaktele,
+    items: [
+      { to: routes.eakteleStock, label: strings.nav.eakteleStock, icon: Smartphone },
     ],
   },
   {

@@ -100,3 +100,17 @@ export function accountStatusTone(status: AccountStatus): StatusTone {
 export function broadcastStatusTone(status: BroadcastStatus): StatusTone {
   return broadcastTone[status] ?? 'neutral';
 }
+
+import type { EakTeleStockStatus } from '@/lib/api';
+
+const eakTeleStockTone: Record<EakTeleStockStatus, StatusTone> = {
+  AVAILABLE: 'success',
+  RESERVED: 'warning',
+  SOLD: 'neutral',
+  INVALID: 'danger',
+  NO_SESSION: 'info',
+};
+
+export function eakTeleStockStatusTone(status: EakTeleStockStatus): StatusTone {
+  return eakTeleStockTone[status] ?? 'neutral';
+}

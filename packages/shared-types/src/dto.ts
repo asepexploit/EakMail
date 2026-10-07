@@ -161,6 +161,7 @@ export interface ProductDto {
   deliveryTemplate: string | null;
   externalProductId: string | null;
   active: boolean;
+  isEakTele: boolean;
   options: ProductOptionDto[];
 }
 export interface UpsertProductRequest {
@@ -176,6 +177,7 @@ export interface UpsertProductRequest {
   deliveryTemplate?: string | null;
   externalProductId?: string | null;
   active?: boolean;
+  isEakTele?: boolean;
   options?: Array<{ key: string; value: string; price?: number }>;
 }
 
