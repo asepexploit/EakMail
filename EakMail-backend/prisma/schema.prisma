@@ -639,3 +639,41 @@ model PromotionLog {
   @@index([campaignId, sentAt])
   @@index([accountId])
 }
+
+// ── Auto-Search & Auto-Join by Keywords ──────────────────────────────────────
+
+model AutoSearchKeyword {
+  id        String   @id @default(cuid())
+  keyword   String   @unique
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([enabled])
+}
+
+enum AutoSearchQueueStatus {
+  PENDING
+  JOINING
+  JOINED
+  LEFT
+  FAILED
+  SKIPPED
+}
+
+model AutoSearchQueue {
+  id           String                @id @default(cuid())
+  accountId    String
+  chatId       String
+  username     String?
+  title        String
+  memberCount  Int?
+  keyword      String                // keyword that found this group
+  status       AutoSearchQueueStatus @default(PENDING)
+  error        String?
+  enqueuedAt   DateTime              @default(now())
+  processedAt  DateTime?
+
+  @@unique([accountId, chatId])
+  @@index([status, enqueuedAt])
+  @@index([accountId, status])
+}

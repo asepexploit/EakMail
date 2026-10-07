@@ -21,6 +21,7 @@ import { startWorkers } from './queue/workers/index.js';
 import { startPaymentSweep } from './modules/payments/payment-sweep.js';
 import { startAllMonitors } from './modules/promotion/auto-join-monitor.js';
 import { startAllAutoReplies } from './modules/promotion/promotion-auto-reply.js';
+import { startAutoSearch } from './modules/promotion/promotion-auto-search.js';
 
 const log = logger.child({ module: 'main' });
 
@@ -55,6 +56,9 @@ async function main(): Promise<void> {
 
   // Start DM auto-reply listeners for accounts with autoReplyEnabled=true
   await startAllAutoReplies().catch((err) => log.warn({ err }, 'startAllAutoReplies failed (non-fatal)'));
+
+  // Start auto-search: find new groups by keywords every 3h, join them gradually
+  await startAutoSearch().catch((err) => log.warn({ err }, 'startAutoSearch failed (non-fatal)'));
 
   // ---- graceful shutdown ----------------------------------------------------
   let shuttingDown = false;

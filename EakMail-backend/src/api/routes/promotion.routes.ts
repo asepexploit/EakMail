@@ -21,6 +21,15 @@ import {
   isAutoReplyRunning,
   DEFAULT_AUTO_REPLY,
 } from '../../modules/promotion/promotion-auto-reply.js';
+import {
+  getKeywords,
+  addKeyword,
+  removeKeyword,
+  toggleKeyword,
+  getQueueStats,
+  getQueueItems,
+  clearQueue,
+} from '../../modules/promotion/promotion-auto-search.js';
 
 const idParam = z.object({ id: z.string().min(1) });
 
@@ -567,5 +576,46 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
       errorMessage: r.errorMessage,
       sentAt: r.sentAt.toISOString(),
     }));
+  });
+
+  // ── Auto-Search Keywords & Queue ────────────────────────────────────────
+
+  app.get('/auto-search/keywords', async () => {
+    return getKeywords();
+  });
+
+  app.post('/auto-search/keywords', async (req) => {
+    const { keyword } = z.object({ keyword: z.string().min(1).max(100) }).parse(req.body);
+    return addKeyword(keyword.trim().toLowerCase());
+  });
+
+  app.delete('/auto-search/keywords/:id', async (req) => {
+    const { id } = idParam.parse(req.params);
+    await removeKeyword(id);
+    return { ok: true };
+  });
+
+  app.patch('/auto-search/keywords/:id', async (req) => {
+    const { id } = idParam.parse(req.params);
+    const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
+    return toggleKeyword(id, enabled);
+  });
+
+  app.get('/auto-search/queue/stats', async () => {
+    return getQueueStats();
+  });
+
+  app.get('/auto-search/queue', async (req) => {
+    const { status, limit } = z.object({
+      status: z.string().optional(),
+      limit: z.coerce.number().min(1).max(200).optional(),
+    }).parse(req.query);
+    return getQueueItems(status, limit);
+  });
+
+  app.delete('/auto-search/queue', async (req) => {
+    const { status } = z.object({ status: z.string().optional() }).parse(req.query);
+    const result = await clearQueue(status);
+    return { deleted: result.count };
   });
 }

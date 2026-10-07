@@ -5,6 +5,7 @@ import { AutoJoinSettings } from '@/features/promotion/components/AutoJoinSettin
 import { JoinAllPanel } from '@/features/promotion/components/JoinAllPanel';
 import { BulkJoinScheduledPanel } from '@/features/promotion/components/BulkJoinScheduledPanel';
 import { AutoReplyPanel } from '@/features/promotion/components/AutoReplyPanel';
+import { AutoSearchPanel } from '@/features/promotion/components/AutoSearchPanel';
 import { ProfileEditModal } from '@/features/promotion/components/ProfileEditModal';
 import { TelegramDialogsModal } from '@/features/promotion/components/TelegramDialogsModal';
 import type { PromotionAccountDto } from '@eakmail/shared-types';
@@ -128,6 +129,7 @@ export default function PromotionAccountsPage() {
         </Card>
       ) : (
         <>
+          <AutoSearchPanel />
           <JoinAllPanel accounts={accounts} />
           <BulkJoinScheduledPanel />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
