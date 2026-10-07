@@ -55,7 +55,7 @@ export async function handleOrdersList(ctx: Context): Promise<void> {
     `${S.ORDERS_TITLE}${lines.join('\n\n')}`,
     {
       parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([...buttons, [Markup.button.callback(S.BTN_BACK_MENU, ACTION.BACK_MENU)]]),
+      ...Markup.inlineKeyboard([...buttons, [Markup.button.callback(S.BTN_HOME, ACTION.BACK_MENU)]]),
     },
   );
 }

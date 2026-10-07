@@ -1,9 +1,11 @@
 /**
  * EakTele bot bootstrap — bot Telegram khusus jual-beli akun Telegram.
- * Berjalan paralel dengan storefront bot EakMail; token terpisah, kode terpisah.
  *
- * Menu utama pakai ReplyKeyboard (tombol besar permanen).
- * Sub-menu, konfirmasi, dan OTP pakai InlineKeyboard.
+ * Flow pembelian:
+ * 1. Beli Akun → flat list produk (emoji bendera + stok)
+ * 2. Tap produk → konfirmasi (Buy / Instruction / Back / Home)
+ * 3. Tap Buy → ketik jumlah
+ * 4. Kirim angka → cek saldo → proses order → kirim detail akun
  */
 import https from 'https';
 import { Telegraf, type Context } from 'telegraf';
@@ -14,7 +16,14 @@ import { mainMenuKeyboard, ACTION } from './keyboards.js';
 import { membershipGate, handleGateCheck, GATE_CHECK_ACTION } from './handlers/membership.js';
 import { handleStart } from './handlers/start.js';
 import { handleCatalog, handleProductCallback } from './handlers/catalog.js';
-import { handlePayWithBalance, handleOrderCancel } from './handlers/order.js';
+import {
+  handleOrderStartBuy,
+  handlePayWithBalance,
+  handleConfirmPayBalance,
+  handleConfirmPayQris,
+  handleOrderCancel,
+  handleQtyInput,
+} from './handlers/order.js';
 import { handleGetOtp, handleRefreshOtp } from './handlers/otp.js';
 import { handleOrdersList, handleOrderDetail } from './handlers/orders-list.js';
 
@@ -30,22 +39,19 @@ export interface EakTeleBot {
 function registerHandlers(bot: Telegraf): void {
   // Gate: wajib join channel sebelum bisa pakai bot
   bot.use(membershipGate());
-
-  // Gate re-check callback — bypass gate sehingga bisa proses ulang
   bot.action(GATE_CHECK_ACTION, (ctx) => handleGateCheck(ctx, handleStart));
 
-  // Commands
+  // ── Commands ────────────────────────────────────────────────────────────
   bot.start(handleStart);
   bot.help(async (ctx) => ctx.reply(S.HELP, { parse_mode: 'Markdown', ...mainMenuKeyboard() }));
+  bot.command('cancel', handleOrderCancel);
 
-  // ReplyKeyboard text routing
+  // ── ReplyKeyboard text routing ──────────────────────────────────────────
   bot.hears(S.MENU_BUY, handleCatalog);
   bot.hears(S.MENU_ORDERS, handleOrdersList);
   bot.hears(S.MENU_BALANCE, async (ctx) => {
     if (!ctx.from) return;
-    const { getOrCreateByTelegramId } = await import('./handlers/start.js').then(() =>
-      import('../bot/customer.repository.js'),
-    );
+    const { getOrCreateByTelegramId } = await import('../../telegram/bot/customer.repository.js');
     const customer = await getOrCreateByTelegramId(String(ctx.from.id));
     await ctx.reply(S.BALANCE_INFO(customer.balance), { parse_mode: 'Markdown' });
   });
@@ -53,35 +59,80 @@ function registerHandlers(bot: Telegraf): void {
     ctx.reply(S.HELP, { parse_mode: 'Markdown', ...mainMenuKeyboard() }),
   );
 
-  // Catalog product select: et:prod:<productId>
+  // ── Catalog ─────────────────────────────────────────────────────────────
+  // Tap produk di katalog flat: et:prod:<productId>
   bot.action(new RegExp(`^${ACTION.CATALOG_PRODUCT}:(.+)$`), async (ctx) => {
     const productId = ctx.match[1];
     if (productId) await handleProductCallback(ctx, productId);
   });
 
-  // Pay with balance: et:pay:balance:<productId>
+  // Back ke katalog dari product detail
+  bot.action(ACTION.BACK_TO_CATALOG, async (ctx) => {
+    await ctx.answerCbQuery();
+    await ctx.deleteMessage().catch(() => undefined);
+    await handleCatalog(ctx);
+  });
+
+  // ── Order ────────────────────────────────────────────────────────────────
+  // Tap Buy di product detail → minta ketik jumlah
+  bot.action(new RegExp(`^${ACTION.ORDER_START_BUY}:(.+)$`), async (ctx) => {
+    const productId = ctx.match[1];
+    if (productId) await handleOrderStartBuy(ctx, productId);
+  });
+
+  // Legacy: langsung bayar saldo 1 akun (dipakai dari halaman order detail)
   bot.action(new RegExp(`^${ACTION.ORDER_PAY_BALANCE}:(.+)$`), async (ctx) => {
     await ctx.answerCbQuery();
     const productId = ctx.match[1];
     if (productId) await handlePayWithBalance(ctx, productId);
   });
 
-  // Cancel order
+  // Konfirmasi bayar saldo (dari payment selection screen)
+  bot.action(ACTION.ORDER_PAY_BALANCE_CONFIRM, handleConfirmPayBalance);
+
+  // Konfirmasi bayar QRIS (dari payment selection screen)
+  bot.action(ACTION.ORDER_PAY_QRIS_CONFIRM, handleConfirmPayQris);
+
+  // Cancel pembelian (inline button atau /cancel command)
   bot.action(ACTION.ORDER_CANCEL, handleOrderCancel);
 
-  // Get OTP: et:otp:<stockId>
+  // Deposit button — tampilkan info deposit
+  bot.action(ACTION.ORDER_DEPOSIT, async (ctx) => {
+    await ctx.answerCbQuery();
+    if (!ctx.from) return;
+    const { getOrCreateByTelegramId } = await import('../../telegram/bot/customer.repository.js');
+    const customer = await getOrCreateByTelegramId(String(ctx.from.id));
+    await ctx.reply(S.DEPOSIT_INFO(customer.balance), {
+      parse_mode: 'Markdown',
+      ...mainMenuKeyboard(),
+    });
+  });
+
+  // ── OTP ──────────────────────────────────────────────────────────────────
   bot.action(new RegExp(`^${ACTION.GET_OTP}:(.+)$`), async (ctx) => {
     const stockId = ctx.match[1];
     if (stockId) await handleGetOtp(ctx, stockId);
   });
 
-  // Refresh OTP: et:otp:refresh:<stockId>
   bot.action(new RegExp(`^${ACTION.REFRESH_OTP}:(.+)$`), async (ctx) => {
     const stockId = ctx.match[1];
     if (stockId) await handleRefreshOtp(ctx, stockId);
   });
 
-  // Logout guide: et:logout:guide:<stockId>
+  // ── Instruksi ─────────────────────────────────────────────────────────────
+  // et:instruction:<stockId|"catalog"> — jika dari katalog, tidak ada OTP button
+  bot.action(new RegExp(`^${ACTION.INSTRUCTION}:(.+)$`), async (ctx) => {
+    await ctx.answerCbQuery();
+    const stockId = ctx.match[1] ?? '';
+    const fromCatalog = stockId === 'catalog';
+    const { Markup } = await import('telegraf');
+    const keyboard = fromCatalog
+      ? Markup.inlineKeyboard([[Markup.button.callback(S.BTN_HOME, ACTION.BACK_MENU)]])
+      : (await import('./keyboards.js')).otpKeyboard(stockId);
+    await ctx.reply(S.INSTRUCTION, { parse_mode: 'Markdown', ...keyboard });
+  });
+
+  // ── Logout guide ──────────────────────────────────────────────────────────
   bot.action(new RegExp(`^${ACTION.LOGOUT_GUIDE}:(.+)$`), async (ctx) => {
     await ctx.answerCbQuery();
     const stockId = ctx.match[1];
@@ -92,7 +143,6 @@ function registerHandlers(bot: Telegraf): void {
     });
   });
 
-  // Buyer confirm logout: et:logout:confirm:<stockId>
   bot.action(new RegExp(`^${ACTION.CONFIRM_LOGOUT}:(.+)$`), async (ctx) => {
     await ctx.answerCbQuery();
     const stockId = ctx.match[1];
@@ -104,25 +154,44 @@ function registerHandlers(bot: Telegraf): void {
     await ctx.reply(S.LOGOUT_CONFIRMED, { parse_mode: 'Markdown', ...mainMenuKeyboard() });
   });
 
-  // Order detail: et:order:<stockId>
+  // ── Pesanan ───────────────────────────────────────────────────────────────
   bot.action(new RegExp(`^${ACTION.ORDER_DETAIL}:(.+)$`), async (ctx) => {
     const stockId = ctx.match[1];
     if (stockId) await handleOrderDetail(ctx, stockId);
   });
 
-  // Back to menu
+  // ── Navigation ────────────────────────────────────────────────────────────
   bot.action(ACTION.BACK_MENU, async (ctx) => {
     await ctx.answerCbQuery();
     await handleStart(ctx);
   });
 
-  // Fallback text
+  // ── Text fallback — cek apakah user sedang ketik jumlah ──────────────────
   bot.on('text', async (ctx) => {
-    await ctx.reply(S.ERROR_UNKNOWN_COMMAND, { ...mainMenuKeyboard() });
+    const handled = await handleQtyInput(ctx);
+    if (!handled) {
+      await ctx.reply(S.ERROR_UNKNOWN_COMMAND, { ...mainMenuKeyboard() });
+    }
   });
 
-  // Error boundary
+  // ── Error boundary ────────────────────────────────────────────────────────
   bot.catch(async (err, ctx: Context) => {
+    const msg = err instanceof Error ? err.message : String(err);
+
+    // Telegram API errors yang tidak perlu ditampilkan ke user
+    const isExpectedTgError =
+      msg.includes('message is not modified') ||
+      msg.includes('message to edit not found') ||
+      msg.includes('query is too old') ||
+      msg.includes('MESSAGE_ID_INVALID') ||
+      msg.includes('BUTTON_DATA_INVALID') ||
+      msg.includes('bot was blocked by the user');
+
+    if (isExpectedTgError) {
+      log.warn({ err }, 'eaktele: expected telegram API error — suppressed');
+      return;
+    }
+
     log.error({ err }, 'eaktele handler error');
     try {
       await ctx.reply(S.ERROR_GENERIC, { ...mainMenuKeyboard() });
@@ -157,6 +226,7 @@ export async function buildEakTeleBot(): Promise<EakTeleBot> {
 
       bot.telegram.setMyCommands([
         { command: 'start', description: 'Menu utama EakTele' },
+        { command: 'cancel', description: 'Batal pembelian' },
         { command: 'help', description: 'Bantuan' },
       ]).catch((err) => {
         log.warn({ err }, 'EakTele setMyCommands failed');

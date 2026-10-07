@@ -14,43 +14,29 @@ export function mainMenuKeyboard() {
 // Inline keyboards — sub-menu dan konfirmasi
 
 export const ACTION = {
-  CATALOG_PRODUCT: 'et:prod',   // et:prod:<productId>
-  ORDER_PAY_BALANCE: 'et:pay:balance', // et:pay:balance:<orderId>
-  ORDER_PAY_QRIS: 'et:pay:qris',      // et:pay:qris:<orderId>
+  CATALOG_PRODUCT: 'et:prod',           // et:prod:<productId>
+  ORDER_START_BUY: 'et:buy:start',           // et:buy:start:<productId>
+  ORDER_PAY_BALANCE: 'et:pay:balance',       // et:pay:balance:<productId>
+  ORDER_PAY_BALANCE_CONFIRM: 'et:pay:bal',   // konfirmasi dari payment select screen
+  ORDER_PAY_QRIS: 'et:pay:qris',             // et:pay:qris:<productId>
+  ORDER_PAY_QRIS_CONFIRM: 'et:pay:qr',       // konfirmasi dari payment select screen
   ORDER_CANCEL: 'et:cancel',
-  GET_OTP: 'et:otp',            // et:otp:<stockId>
-  REFRESH_OTP: 'et:otp:refresh', // et:otp:refresh:<stockId>
-  LOGOUT_GUIDE: 'et:logout:guide', // et:logout:guide:<stockId>
-  CONFIRM_LOGOUT: 'et:logout:confirm', // et:logout:confirm:<stockId>
-  ORDER_DETAIL: 'et:order',     // et:order:<orderId>
+  ORDER_DEPOSIT: 'et:deposit',
+  GET_OTP: 'et:otp:get',                 // et:otp:get:<stockId>
+  REFRESH_OTP: 'et:otp:refresh',        // et:otp:refresh:<stockId>
+  INSTRUCTION: 'et:instruction',        // et:instruction:<stockId|catalog>
+  LOGOUT_GUIDE: 'et:logout:guide',      // et:logout:guide:<stockId>
+  CONFIRM_LOGOUT: 'et:logout:confirm',  // et:logout:confirm:<stockId>
+  ORDER_DETAIL: 'et:order',             // et:order:<stockId>
+  BACK_TO_CATALOG: 'et:back:catalog',
   BACK_MENU: 'et:back',
 } as const;
-
-export function catalogProductKeyboard(productId: string, name: string, price: number, inStock: boolean) {
-  if (!inStock) {
-    return Markup.inlineKeyboard([
-      [Markup.button.callback(S.BTN_BACK, ACTION.BACK_MENU)],
-    ]);
-  }
-  return Markup.inlineKeyboard([
-    [Markup.button.callback(S.BTN_BUY_ACCOUNT(name, price), `${ACTION.CATALOG_PRODUCT}:${productId}`)],
-    [Markup.button.callback(S.BTN_BACK, ACTION.BACK_MENU)],
-  ]);
-}
-
-export function orderConfirmKeyboard(orderId: string) {
-  return Markup.inlineKeyboard([
-    [Markup.button.callback(S.BTN_PAY_BALANCE, `${ACTION.ORDER_PAY_BALANCE}:${orderId}`)],
-    [Markup.button.callback(S.BTN_PAY_QRIS, `${ACTION.ORDER_PAY_QRIS}:${orderId}`)],
-    [Markup.button.callback(S.BTN_CANCEL, ACTION.ORDER_CANCEL)],
-  ]);
-}
 
 export function deliveryKeyboard(stockId: string) {
   return Markup.inlineKeyboard([
     [
       Markup.button.callback(S.BTN_GET_OTP, `${ACTION.GET_OTP}:${stockId}`),
-      Markup.button.callback(S.BTN_LOGOUT_GUIDE, `${ACTION.LOGOUT_GUIDE}:${stockId}`),
+      Markup.button.callback(S.BTN_INSTRUCTION_SHORT, `${ACTION.INSTRUCTION}:${stockId}`),
     ],
     [Markup.button.callback(S.BTN_CONFIRM_LOGOUT, `${ACTION.CONFIRM_LOGOUT}:${stockId}`)],
   ]);
@@ -67,6 +53,13 @@ export function logoutGuideKeyboard(stockId: string) {
   return Markup.inlineKeyboard([
     [Markup.button.callback(S.BTN_CONFIRM_LOGOUT, `${ACTION.CONFIRM_LOGOUT}:${stockId}`)],
     [Markup.button.callback(S.BTN_BACK, ACTION.BACK_MENU)],
+  ]);
+}
+
+export function insufficientBalanceKeyboard() {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback(S.BTN_DEPOSIT, ACTION.ORDER_DEPOSIT)],
+    [Markup.button.callback(S.BTN_HOME, ACTION.BACK_MENU)],
   ]);
 }
 

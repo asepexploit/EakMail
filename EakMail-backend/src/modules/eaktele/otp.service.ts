@@ -46,22 +46,32 @@ async function loadGramjs() {
 }
 
 export async function readOtp(stockId: string): Promise<OtpResponse> {
+  log.info({ stockId }, 'eaktele-otp: readOtp called');
+
   const stock = await stockRepository.findById(stockId);
-  if (!stock) return { ok: false, error: { reason: 'error', detail: 'stock not found' } };
+  if (!stock) {
+    log.warn({ stockId }, 'eaktele-otp: stock not found');
+    return { ok: false, error: { reason: 'error', detail: 'stock not found' } };
+  }
 
   if (!stock.sessionEnc) {
+    log.warn({ stockId, phone: stock.phone }, 'eaktele-otp: no session');
     return { ok: false, error: { reason: 'no_session' } };
   }
 
   const sessionString = decrypt(stock.sessionEnc);
 
-  // Pilih API credentials: per-akun (opsional) → fallback ke EAKTELE_API_ID → TELEGRAM_API_ID
-  const apiId = stock.apiId ?? config.EAKTELE_API_ID ?? config.TELEGRAM_API_ID;
+  // Pilih API credentials: per-akun → fallback ke EAKTELE_API_ID → TELEGRAM_API_ID
+  // Gunakan || bukan ?? karena config default(0) sehingga ?? berhenti di 0
+  const apiId = stock.apiId || config.EAKTELE_API_ID || config.TELEGRAM_API_ID;
   const apiHash = stock.apiHashEnc
     ? decrypt(stock.apiHashEnc)
     : (config.EAKTELE_API_HASH || config.TELEGRAM_API_HASH);
 
+  log.info({ stockId, phone: stock.phone, hasSession: Boolean(stock.sessionEnc), apiId }, 'eaktele-otp: connecting');
+
   if (!apiId || !apiHash) {
+    log.warn({ stockId }, 'eaktele-otp: API credentials not configured');
     return { ok: false, error: { reason: 'error', detail: 'API credentials not configured' } };
   }
 
@@ -85,8 +95,50 @@ export async function readOtp(stockId: string): Promise<OtpResponse> {
       return { ok: false, error: { reason: 'session_invalid' } };
     }
 
-    // Ambil pesan terbaru dari entity 777000 (Telegram service sender)
-    const messages = await client.getMessages(OTP_SENDER_ID, { limit: 5 });
+    // Baca pesan dari Telegram service notification sender (777000).
+    // Langkah: (1) resolve entity 777000 via users.GetUsers agar masuk cache GramJS,
+    // (2) ambil pesan via getMessages, (3) fallback: invoke GetHistory dengan inputPeer dari cache.
+    const { Api } = await loadGramjs();
+    let messages: any[] = [];
+
+    // Step 1: populate cache GramJS dengan entity 777000
+    try {
+      await client.invoke(new Api.users.GetUsers({
+        id: [new Api.InputUser({ userId: BigInt(OTP_SENDER_ID), accessHash: BigInt(0) })],
+      }));
+    } catch (e0) {
+      log.warn({ stockId, err: String(e0) }, 'eaktele-otp: GetUsers(777000) failed');
+    }
+
+    // Step 2: getMessages — entity sekarang ada di cache setelah GetUsers
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result: any[] = Array.from(
+        await client.getMessages(BigInt(OTP_SENDER_ID), { limit: 10 }),
+      );
+      messages = result.filter((m) => m?.message);
+      log.info({ stockId, count: messages.length }, 'eaktele-otp: getMessages(777000) result');
+    } catch (e1) {
+      log.warn({ stockId, err: String(e1) }, 'eaktele-otp: getMessages(777000) failed');
+    }
+
+    // Step 3: fallback — invoke GetHistory dengan inputPeer dari cache
+    if (messages.length === 0) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const inputPeer: any = await client.getInputEntity(BigInt(OTP_SENDER_ID));
+        const hist = await client.invoke(new Api.messages.GetHistory({
+          peer: inputPeer,
+          limit: 10, offsetId: 0, offsetDate: 0, addOffset: 0, maxId: 0, minId: 0, hash: BigInt(0),
+        }));
+        messages = (hist.messages ?? []).filter((m: any) => m?.message);
+        log.info({ stockId, count: messages.length }, 'eaktele-otp: GetHistory fallback result');
+      } catch (e2) {
+        log.warn({ stockId, err: String(e2) }, 'eaktele-otp: GetHistory fallback failed');
+      }
+    }
+
+    log.info({ stockId, totalMessages: messages.length }, 'eaktele-otp: total messages to scan');
 
     if (!messages || messages.length === 0) {
       await client.disconnect();

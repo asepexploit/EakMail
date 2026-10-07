@@ -45,13 +45,18 @@ export function EakTeleStockPage() {
     ...eakTeleProducts.map((p: { id: string; name: string }) => ({ value: p.id, label: p.name })),
   ];
 
-  const selectedProductObj = eakTeleProducts.find((p) => p.id === selectedProduct);
-
   function handleRefresh() {
     void qc.invalidateQueries({ queryKey: queryKeys.eaktele.all });
   }
 
   const columns = [
+    {
+      key: 'productName',
+      header: 'Produk',
+      render: (row: EakTeleStockDto) => (
+        <span className="text-sm text-text-muted max-w-[160px] truncate block">{row.productName || '—'}</span>
+      ),
+    },
     {
       key: 'phone',
       header: 'Nomor HP',
@@ -142,7 +147,6 @@ export function EakTeleStockPage() {
             <Button
               size="sm"
               onClick={() => setAddOpen(true)}
-              disabled={selectedProduct === ALL && eakTeleProducts.length === 0}
             >
               <Plus className="h-4 w-4 mr-1" />
               Tambah Stok
@@ -198,12 +202,7 @@ export function EakTeleStockPage() {
         <AddStockDialog
           open={addOpen}
           onClose={() => setAddOpen(false)}
-          productId={selectedProduct !== ALL ? selectedProduct : (eakTeleProducts[0]?.id ?? '')}
-          productName={
-            selectedProductObj?.name ??
-            eakTeleProducts[0]?.name ??
-            'Pilih Produk'
-          }
+          defaultProductId={selectedProduct !== ALL ? selectedProduct : undefined}
         />
       )}
     </div>

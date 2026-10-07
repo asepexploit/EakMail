@@ -18,7 +18,6 @@ export async function handleGetOtp(ctx: Context, stockId: string): Promise<void>
   await ctx.answerCbQuery('Mengambil kode OTP...');
 
   const result = await readOtp(stockId);
-  const stock = await stockService.get(stockId);
 
   if (!result.ok) {
     let text: string;
@@ -37,18 +36,16 @@ export async function handleGetOtp(ctx: Context, stockId: string): Promise<void>
     await ctx.editMessageText(text, {
       parse_mode: 'Markdown',
       ...otpKeyboard(stockId),
-    });
+    }).catch(() => ctx.reply(text, { parse_mode: 'Markdown', ...otpKeyboard(stockId) }));
     return;
   }
 
+  // Fetch phone hanya saat OTP berhasil ditemukan
+  const stock = await stockService.get(stockId);
   const sentAtStr = formatRelativeTime(result.data.sentAt);
-  await ctx.editMessageText(
-    S.OTP_RESULT(stock.phone, result.data.code, sentAtStr),
-    {
-      parse_mode: 'Markdown',
-      ...otpKeyboard(stockId),
-    },
-  );
+  const text = S.OTP_RESULT(stock.phone, result.data.code, sentAtStr, result.data.messageText);
+  await ctx.editMessageText(text, { parse_mode: 'Markdown', ...otpKeyboard(stockId) })
+    .catch(() => ctx.reply(text, { parse_mode: 'Markdown', ...otpKeyboard(stockId) }));
 }
 
 export async function handleRefreshOtp(ctx: Context, stockId: string): Promise<void> {

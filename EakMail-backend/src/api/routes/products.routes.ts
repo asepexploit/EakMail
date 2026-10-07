@@ -51,10 +51,11 @@ function adminId(request: FastifyRequest): string | undefined {
 }
 
 export async function productsRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/', async () => {
-    // Shape as Paginated<ProductDto> to match the shared DTO contract the frontend expects
-    // (api.products.list -> Paginated<ProductDto>). Consistent with suppliers/workflows.
-    const items = await productService.listProducts();
+  app.get('/', async (req) => {
+    // isEakTele=true → kembalikan produk EakTele saja; false (default) → produk biasa saja
+    const qs = req.query as Record<string, string>;
+    const isEakTele = qs.isEakTele === 'true';
+    const items = await productService.listProducts(isEakTele);
     return { items, total: items.length, page: 1, pageSize: items.length };
   });
 

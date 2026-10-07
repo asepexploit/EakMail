@@ -69,6 +69,13 @@ export function useEakTeleLoginSubmit() {
       toast.success('Akun berhasil diverifikasi dan sesi aktif');
       void client.invalidateQueries({ queryKey: queryKeys.eaktele.all });
     },
-    onError: () => toast.error('Kode OTP salah atau sesi expired'),
+    onError: (err) => {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.toLowerCase().includes('expired') || msg.toLowerCase().includes('unknown')) {
+        toast.error('Sesi OTP kadaluarsa, silakan kirim ulang OTP');
+      } else {
+        toast.error('Kode OTP salah atau sesi expired');
+      }
+    },
   });
 }

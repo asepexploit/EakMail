@@ -54,8 +54,8 @@ function toOptionRows(options: UpsertProductRequest['options']) {
   }));
 }
 
-export async function listProducts(): Promise<ProductDto[]> {
-  const products = await repository.findAll();
+export async function listProducts(isEakTele = false): Promise<ProductDto[]> {
+  const products = await repository.findAll(isEakTele);
   return products.map(toDto);
 }
 

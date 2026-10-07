@@ -10,8 +10,9 @@ export type ProductWithOptions = Product & { options: ProductOption[] };
 
 const withOptions = { options: true } as const;
 
-export function findAll(): Promise<ProductWithOptions[]> {
+export function findAll(isEakTele = false): Promise<ProductWithOptions[]> {
   return prisma.product.findMany({
+    where: { isEakTele },
     include: withOptions,
     orderBy: { createdAt: 'desc' },
   });

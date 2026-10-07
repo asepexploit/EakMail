@@ -29,7 +29,7 @@ const loginStartSchema = z.object({
 const loginSubmitSchema = z.object({
   stockId: z.string().min(1),
   loginId: z.string().min(1),
-  code: z.string().min(4),
+  code: z.string().optional().default(''),   // empty string allowed for 2FA-only step
   password: z.string().optional(),
 });
 

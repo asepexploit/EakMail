@@ -67,14 +67,16 @@ export const stockRepository = {
   async findAll(filters?: {
     productId?: string;
     status?: TelegramAccountStockStatus;
-  }): Promise<StockRow[]> {
-    return prisma.telegramAccountStock.findMany({
+  }): Promise<(StockRow & { productName: string })[]> {
+    const rows = await prisma.telegramAccountStock.findMany({
       where: {
         ...(filters?.productId ? { productId: filters.productId } : {}),
         ...(filters?.status ? { status: filters.status } : {}),
       },
       orderBy: { createdAt: 'desc' },
+      include: { product: { select: { name: true } } },
     });
+    return rows.map((r) => ({ ...r, productName: r.product.name }));
   },
 
   /** Ambil satu akun AVAILABLE untuk di-reserve ke sebuah order (atomic). */
@@ -136,6 +138,13 @@ export const stockRepository = {
       NO_SESSION: 0,
     };
     for (const r of rows) base[r.status] = r._count.status;
+
+    // AVAILABLE yang bisa dijual hanya yang session-nya aktif — sama dengan filter reserveOne
+    const sellable = await prisma.telegramAccountStock.count({
+      where: { productId, status: 'AVAILABLE', isSessionActive: true },
+    });
+    base.AVAILABLE = sellable;
+
     return base;
   },
 

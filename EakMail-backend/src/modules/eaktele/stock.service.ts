@@ -13,6 +13,7 @@ const log = logger.child({ module: 'eaktele-stock' });
 export interface StockDto {
   id: string;
   productId: string;
+  productName: string;
   phone: string;
   has2fa: boolean;
   hasSession: boolean;
@@ -33,10 +34,11 @@ export interface StockDeliveryDetail {
   password2fa: string | null;
 }
 
-function toDto(row: StockRow): StockDto {
+function toDto(row: StockRow & { productName?: string }): StockDto {
   return {
     id: row.id,
     productId: row.productId,
+    productName: row.productName ?? '',
     phone: row.phone,
     has2fa: Boolean(row.password2faEnc),
     hasSession: Boolean(row.sessionEnc),

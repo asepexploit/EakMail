@@ -51,6 +51,7 @@ export interface ListQuery extends QueryParams {
   page?: number;
   pageSize?: number;
   search?: string;
+  isEakTele?: boolean;
 }
 
 export interface OrderListQuery extends ListQuery {
@@ -264,7 +265,7 @@ export const api = {
         body,
       ),
     loginSubmit: (body: { stockId: string; loginId: string; code: string; password?: string }) =>
-      http.post<{ ok: boolean }>('/eaktele/stock/login/submit', body),
+      http.post<{ done: boolean; needsPassword: boolean }>('/eaktele/stock/login/submit', body),
     loginAbort: (loginId: string) =>
       http.post<{ ok: boolean }>('/eaktele/stock/login/abort', { loginId }),
   },
@@ -345,6 +346,7 @@ export type EakTeleStockStatus = 'AVAILABLE' | 'RESERVED' | 'SOLD' | 'INVALID' |
 export interface EakTeleStockDto {
   id: string;
   productId: string;
+  productName: string;
   phone: string;
   status: EakTeleStockStatus;
   isSessionActive: boolean;

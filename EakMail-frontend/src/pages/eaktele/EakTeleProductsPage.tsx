@@ -17,8 +17,8 @@ export function EakTeleProductsPage() {
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
 
-  const products = useProducts({ pageSize: 100 });
-  const eakTeleProducts = (products.data?.items ?? []).filter((p) => p.isEakTele);
+  const products = useProducts({ pageSize: 100, isEakTele: true });
+  const eakTeleProducts = products.data?.items ?? [];
 
   const createProduct = useCreateProduct();
   const deleteProduct = useDeleteProduct();
