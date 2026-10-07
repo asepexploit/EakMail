@@ -4,7 +4,7 @@ import { Markup } from 'telegraf';
 import { S } from '../i18n/strings.js';
 import { mainMenuKeyboard, deliveryKeyboard, ACTION } from '../keyboards.js';
 import { getOrCreateByTelegramId } from '../../bot/customer.repository.js';
-import { stockRepository } from '../../../modules/eaktele/stock.repository.js';
+import type { TelegramAccountStock } from '@prisma/client';
 import { stockService } from '../../../modules/eaktele/stock.service.js';
 import { prisma } from '../../../db/client.js';
 
@@ -39,7 +39,7 @@ export async function handleOrdersList(ctx: Context): Promise<void> {
 
   const orderDateMap = new Map(customerOrders.map((o) => [o.id, o.createdAt]));
 
-  const lines = sold.map((s, i) => {
+  const lines = sold.map((s: TelegramAccountStock, i: number) => {
     const orderDate = s.orderId ? orderDateMap.get(s.orderId) : null;
     const date = orderDate
       ? orderDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -47,7 +47,7 @@ export async function handleOrdersList(ctx: Context): Promise<void> {
     return S.ORDER_ITEM(i + 1, s.phone, date);
   });
 
-  const buttons = sold.map((s, i) => [
+  const buttons = sold.map((s: TelegramAccountStock, i: number) => [
     Markup.button.callback(S.BTN_ORDER_DETAIL(i + 1), `${ACTION.ORDER_DETAIL}:${s.id}`),
   ]);
 

@@ -17,7 +17,7 @@ export async function handleCatalog(ctx: Context): Promise<void> {
 
   for (const product of aktif) {
     const counts = await stockRepository.countByStatus(product.id);
-    const available = counts.AVAILABLE;
+    const available = counts.AVAILABLE ?? 0;
     const text = available > 0
       ? S.CATALOG_ITEM(product.name, product.price, available)
       : S.CATALOG_SOLD_OUT(product.name);
