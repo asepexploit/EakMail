@@ -4,6 +4,7 @@ import { AccountJoinPanel } from '@/features/promotion/components/AccountJoinPan
 import { AutoJoinSettings } from '@/features/promotion/components/AutoJoinSettings';
 import { JoinAllPanel } from '@/features/promotion/components/JoinAllPanel';
 import { BulkJoinScheduledPanel } from '@/features/promotion/components/BulkJoinScheduledPanel';
+import { AutoReplyPanel } from '@/features/promotion/components/AutoReplyPanel';
 import { ProfileEditModal } from '@/features/promotion/components/ProfileEditModal';
 import { TelegramDialogsModal } from '@/features/promotion/components/TelegramDialogsModal';
 import type { PromotionAccountDto } from '@eakmail/shared-types';
@@ -333,6 +334,7 @@ function AccountCard({ account, onDelete }: { account: PromotionAccountDto; onDe
 
       {isConnected && <AccountJoinPanel accountId={account.id} />}
       {isConnected && <AutoJoinSettings accountId={account.id} />}
+      {isConnected && <AutoReplyPanel accountId={account.id} />}
     </Card>
   );
 }

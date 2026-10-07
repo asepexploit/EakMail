@@ -438,6 +438,8 @@ export interface PromotionAccountDto {
   floodUntil: string | null;
   lastUsedAt: string | null;
   createdAt: string;
+  autoReplyEnabled: boolean;
+  autoReplyMessage: string | null;
 }
 
 export interface PromotionCampaignDto {
@@ -536,4 +538,11 @@ export interface TelegramDialogsResult {
   channels: TelegramDialogItem[];
   chats: TelegramDialogItem[];
   total: number;
+}
+
+export interface AutoReplySettingsDto {
+  autoReplyEnabled: boolean;
+  autoReplyMessage: string | null;
+  defaultMessage: string;
+  isRunning: boolean;
 }

@@ -13,6 +13,8 @@ export interface PromotionAccountDto {
   floodUntil: string | null;
   lastUsedAt: string | null;
   createdAt: string;
+  autoReplyEnabled: boolean;
+  autoReplyMessage: string | null;
 }
 
 export interface PromotionCampaignDto {

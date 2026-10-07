@@ -456,6 +456,9 @@ model PromotionAccount {
   autoJoinEnabled    Boolean              @default(false)
   autoJoinMaxPerHour Int                  @default(5)
   messageLogEnabled  Boolean              @default(false) // log all messages from monitored groups
+  // Auto-reply DM settings
+  autoReplyEnabled   Boolean              @default(false)
+  autoReplyMessage   String?              // null = use default template
   campaignAccounts CampaignAccount[]
   promotionLogs   PromotionLog[]
   autoJoinLogs    AutoJoinLog[]

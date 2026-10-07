@@ -15,6 +15,12 @@ import { startMonitor, stopMonitor, isMonitorRunning } from '../../modules/promo
 import { checkAndLeaveIfReadOnly } from '../../modules/monitor/monitor-groups.service.js';
 import { getTelegramProfile, updateTelegramProfile } from '../../modules/promotion/promotion-profile.js';
 import { fetchAllDialogs } from '../../modules/promotion/promotion-dialogs.js';
+import {
+  startAutoReply,
+  stopAutoReply,
+  isAutoReplyRunning,
+  DEFAULT_AUTO_REPLY,
+} from '../../modules/promotion/promotion-auto-reply.js';
 
 const idParam = z.object({ id: z.string().min(1) });
 
@@ -107,6 +113,51 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
     if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
     if (!account.sessionEnc) { const e = new Error('No active session'); (e as any).statusCode = 400; throw e; }
     return fetchAllDialogs(account.sessionEnc);
+  });
+
+  /** PATCH /accounts/:id/auto-reply — enable/disable DM auto-reply and set message template. */
+  app.patch('/accounts/:id/auto-reply', async (req) => {
+    const { id } = idParam.parse(req.params);
+    const body = z.object({
+      enabled: z.boolean(),
+      message: z.string().max(500).optional(),
+    }).parse(req.body);
+
+    const account = await promotionAccountRepository.findById(id);
+    if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
+
+    await prisma.promotionAccount.update({
+      where: { id },
+      data: {
+        autoReplyEnabled: body.enabled,
+        autoReplyMessage: body.message ?? null,
+      },
+    });
+
+    if (body.enabled) {
+      await startAutoReply(id);
+    } else {
+      stopAutoReply(id);
+    }
+
+    return {
+      autoReplyEnabled: body.enabled,
+      autoReplyMessage: body.message ?? null,
+      isRunning: isAutoReplyRunning(id),
+    };
+  });
+
+  /** GET /accounts/:id/auto-reply — current auto-reply settings. */
+  app.get('/accounts/:id/auto-reply', async (req) => {
+    const { id } = idParam.parse(req.params);
+    const account = await prisma.promotionAccount.findUnique({ where: { id }, select: { autoReplyEnabled: true, autoReplyMessage: true } });
+    if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
+    return {
+      autoReplyEnabled: account.autoReplyEnabled,
+      autoReplyMessage: account.autoReplyMessage ?? null,
+      defaultMessage: DEFAULT_AUTO_REPLY,
+      isRunning: isAutoReplyRunning(id),
+    };
   });
 
   /** PATCH /accounts/:id/profile — update Telegram profile (name, username, bio, photo). */

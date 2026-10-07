@@ -20,6 +20,8 @@ function toDto(a: PromotionAccount): PromotionAccountDto {
     floodUntil: a.floodUntil?.toISOString() ?? null,
     lastUsedAt: a.lastUsedAt?.toISOString() ?? null,
     createdAt: a.createdAt.toISOString(),
+    autoReplyEnabled: a.autoReplyEnabled,
+    autoReplyMessage: a.autoReplyMessage ?? null,
   };
 }
 

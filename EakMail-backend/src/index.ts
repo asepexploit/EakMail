@@ -20,6 +20,7 @@ import { buildEakTeleBot, type EakTeleBot } from './telegram/eaktele/index.js';
 import { startWorkers } from './queue/workers/index.js';
 import { startPaymentSweep } from './modules/payments/payment-sweep.js';
 import { startAllMonitors } from './modules/promotion/auto-join-monitor.js';
+import { startAllAutoReplies } from './modules/promotion/promotion-auto-reply.js';
 
 const log = logger.child({ module: 'main' });
 
@@ -51,6 +52,9 @@ async function main(): Promise<void> {
 
   // Start auto-join monitors for accounts with autoJoinEnabled=true
   await startAllMonitors().catch((err) => log.warn({ err }, 'startAllMonitors failed (non-fatal)'));
+
+  // Start DM auto-reply listeners for accounts with autoReplyEnabled=true
+  await startAllAutoReplies().catch((err) => log.warn({ err }, 'startAllAutoReplies failed (non-fatal)'));
 
   // ---- graceful shutdown ----------------------------------------------------
   let shuttingDown = false;
