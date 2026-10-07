@@ -35,7 +35,7 @@ export const monitoredGroupRepository = {
     });
   },
 
-  /** Mark a group READ_ONLY by accountId + target (numeric chatId or @username/username). */
+  /** Mark a group READ_ONLY by accountId + target (numeric chatId, @username, or invite link). */
   markReadOnlyByTarget(accountId: string, target: string) {
     const where = targetWhere(accountId, target);
     return prisma.monitoredGroup.updateMany({
@@ -44,7 +44,7 @@ export const monitoredGroupRepository = {
     });
   },
 
-  /** Mark a group LEFT by accountId + target — account is no longer a member. */
+  /** Mark a group LEFT by accountId + target (numeric chatId, @username, or invite link). */
   markLeftByTarget(accountId: string, target: string) {
     const where = targetWhere(accountId, target);
     return prisma.monitoredGroup.updateMany({
@@ -66,9 +66,13 @@ export const monitoredGroupRepository = {
   },
 };
 
-function targetWhere(accountId: string, target: string) {
-  const isNumeric = /^-\d+$/.test(target);
-  return isNumeric
-    ? { accountId, chatId: target }
-    : { accountId, username: target.replace(/^@/, '').toLowerCase() };
+function targetWhere(accountId: string, target: string): Prisma.MonitoredGroupWhereInput {
+  if (/^-\d+$/.test(target)) {
+    return { accountId, chatId: target };
+  }
+  // Invite links (t.me/+XXX or https://t.me/+XXX) — match by sourceLink.
+  if (target.includes('t.me/+') || target.includes('t.me/joinchat/')) {
+    return { accountId, sourceLink: target };
+  }
+  return { accountId, username: target.replace(/^@/, '').toLowerCase() };
 }

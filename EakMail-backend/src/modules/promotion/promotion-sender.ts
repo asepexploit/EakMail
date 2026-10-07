@@ -195,9 +195,20 @@ async function sendOne(
     if (
       msg.includes('CHAT_WRITE_FORBIDDEN') ||
       msg.includes('CHAT_SEND_PLAIN_FORBIDDEN') ||
-      msg.includes('TOPIC_CLOSED')
+      msg.includes('CHAT_SEND_MEDIA_FORBIDDEN') ||
+      msg.includes('CHAT_SEND_STICKERS_FORBIDDEN') ||
+      msg.includes('CHAT_SEND_GIFS_FORBIDDEN') ||
+      msg.includes('CHAT_RESTRICTED') ||
+      msg.includes('CHAT_ADMIN_REQUIRED') ||
+      msg.includes('BROADCAST_FORBIDDEN') ||
+      msg.includes('TOPIC_CLOSED') ||
+      // GramJS error class names (thrown as Error with class name in message or constructor)
+      msg.includes('ChatWriteForbiddenError') ||
+      msg.includes('ChatRestrictedError') ||
+      msg.includes('ChatAdminRequiredError') ||
+      msg.includes('BroadcastForbiddenError')
     ) {
-      log.info({ target }, 'write forbidden — will mark READ_ONLY');
+      log.info({ target, msg }, 'write forbidden — will mark READ_ONLY and auto-leave');
       return { ok: false, error: msg, errorType: 'WRITE_FORBIDDEN' };
     }
     // SlowModeWaitError — per-chat slow mode, not account-wide flood wait.
@@ -206,7 +217,7 @@ async function sendOne(
       log.info({ target }, 'slow mode active in this chat — skipping group');
       return { ok: false, error: msg, errorType: 'OTHER' };
     }
-    if (msg.includes('USER_BANNED_IN_CHANNEL')) {
+    if (msg.includes('USER_BANNED_IN_CHANNEL') || msg.includes('UserBannedInChannelError')) {
       log.info({ target }, 'banned in channel — will mark READ_ONLY');
       return { ok: false, error: msg, errorType: 'BANNED' };
     }
