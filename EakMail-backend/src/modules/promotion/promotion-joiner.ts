@@ -41,6 +41,7 @@ export function normalizeGroupIdentifier(raw: string): { type: 'username' | 'inv
 export async function joinGroups(
   sessionEnc: string,
   groups: string[],
+  { delayMs }: { delayMs?: number } = {},
 ): Promise<JoinResult[]> {
   const { TelegramClient, StringSession, Api } = await loadGramjs();
   const { config } = await import('../../config/index.js');
@@ -82,9 +83,9 @@ export async function joinGroups(
         results.push({ group, ok: false, error: friendlyJoinError(message) });
       }
     }
-    // Random delay 3–8s between joins to mimic human behaviour and avoid flood
-    const delay = 3000 + Math.floor(Math.random() * 5000);
-    await new Promise((r) => setTimeout(r, delay));
+    // Random delay between joins to mimic human behaviour (skip when delayMs=0 for bulk-join)
+    const effectiveDelay = delayMs !== undefined ? delayMs : 3000 + Math.floor(Math.random() * 5000);
+    if (effectiveDelay > 0) await new Promise((r) => setTimeout(r, effectiveDelay));
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

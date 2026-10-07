@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Wifi, WifiOff, Clock, Ban, Plus, Trash2, KeyRound, Send, Users, Radio, AlertCircle, UserPen } from 'lucide-react';
 import { AccountJoinPanel } from '@/features/promotion/components/AccountJoinPanel';
 import { AutoJoinSettings } from '@/features/promotion/components/AutoJoinSettings';
+import { JoinAllPanel } from '@/features/promotion/components/JoinAllPanel';
 import { ProfileEditModal } from '@/features/promotion/components/ProfileEditModal';
 import type { PromotionAccountDto } from '@eakmail/shared-types';
 import { PromotionAccountStatus } from '@eakmail/shared-types';
@@ -123,15 +124,18 @@ export default function PromotionAccountsPage() {
           <p>Belum ada akun promosi. Tambah akun untuk mulai kampanye.</p>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {accounts.map((acc) => (
-            <AccountCard
-              key={acc.id}
-              account={acc}
-              onDelete={() => deleteAccount.mutate(acc.id)}
-            />
-          ))}
-        </div>
+        <>
+          <JoinAllPanel accounts={accounts} />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {accounts.map((acc) => (
+              <AccountCard
+                key={acc.id}
+                account={acc}
+                onDelete={() => deleteAccount.mutate(acc.id)}
+              />
+            ))}
+          </div>
+        </>
       )}
 
       {/* Login Dialog */}

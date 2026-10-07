@@ -444,6 +444,8 @@ export interface PromotionCampaignDto {
   id: string;
   name: string;
   message: string;
+  /** All message variants (min 1). Each account picks one randomly per send run. */
+  messages: string[];
   imageUrl: string | null;
   targetGroups: string[];
   intervalMinutes: number;
@@ -474,6 +476,8 @@ export interface PromotionLogDto {
 export interface UpsertCampaignRequest {
   name: string;
   message: string;
+  /** Optional message variants (2–5). If provided, overrides single message. */
+  messages?: string[];
   imageUrl?: string | null;
   targetGroups: string[];
   intervalMinutes: number;

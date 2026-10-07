@@ -35,6 +35,8 @@ const sessionStringSchema = z.object({
 const campaignSchema = z.object({
   name: z.string().min(1).max(120),
   message: z.string().min(1),
+  /** Multiple message variants (2–5). When provided, overrides single message. */
+  messages: z.array(z.string().min(1)).min(1).max(5).optional(),
   imageUrl: z.string().url().nullable().optional(),
   targetGroups: z.array(z.string().min(1)).min(0),
   intervalMinutes: z.number().int().min(1).max(10080),
@@ -217,6 +219,50 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
     }
 
     return { results };
+  });
+
+  // ── Join all connected accounts at once (bulk join) ──────────────────────
+  app.post('/accounts/join-all', async (req) => {
+    const { groups } = z.object({ groups: z.array(z.string().min(1)).min(1) }).parse(req.body);
+    const allAccounts = await promotionAccountRepository.findAll();
+    const connected = allAccounts.filter(
+      (a: any) => a.status === 'CONNECTED' && a.sessionEnc,
+    );
+    if (connected.length === 0) {
+      return { accounts: [] };
+    }
+
+    // Run all accounts in parallel; no inter-group delay (each account has own flood limits)
+    const accountResults = await Promise.all(
+      connected.map(async (acc: any) => {
+        try {
+          const results = await joinGroups(acc.sessionEnc, groups, { delayMs: 0 });
+          // Kick off leave-if-readonly checks in background (non-blocking)
+          for (let i = 0; i < results.length; i++) {
+            const r = results[i];
+            const grp = groups[i];
+            if (r?.ok && grp) {
+              void checkAndLeaveIfReadOnly(acc.id, acc.sessionEnc, grp, grp).catch(() => undefined);
+            }
+          }
+          return {
+            accountId: acc.id,
+            label: acc.label,
+            phone: acc.phone,
+            results,
+          };
+        } catch (err) {
+          return {
+            accountId: acc.id,
+            label: acc.label,
+            phone: acc.phone,
+            results: groups.map((g) => ({ group: g, ok: false, error: String(err) })),
+          };
+        }
+      }),
+    );
+
+    return { accounts: accountResults };
   });
 
   app.get('/accounts/:id/groups', async (req) => {

@@ -44,6 +44,15 @@ export const monitoredGroupRepository = {
     });
   },
 
+  /** Mark a group BANNED (account individually banned by group admin) by accountId + target. */
+  markBannedByTarget(accountId: string, target: string) {
+    const where = targetWhere(accountId, target);
+    return prisma.monitoredGroup.updateMany({
+      where,
+      data: { status: 'BANNED', canSendMessages: false },
+    });
+  },
+
   /** Mark a group LEFT by accountId + target (numeric chatId, @username, or invite link). */
   markLeftByTarget(accountId: string, target: string) {
     const where = targetWhere(accountId, target);

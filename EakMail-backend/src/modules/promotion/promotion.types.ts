@@ -19,6 +19,7 @@ export interface PromotionCampaignDto {
   id: string;
   name: string;
   message: string;
+  messages: string[];
   imageUrl: string | null;
   targetGroups: string[];
   intervalMinutes: number;
@@ -54,6 +55,7 @@ export interface CreatePromotionAccountInput {
 export interface UpsertCampaignInput {
   name: string;
   message: string;
+  messages?: string[];
   imageUrl?: string | null;
   targetGroups: string[];
   intervalMinutes: number;

@@ -17,6 +17,11 @@ import { bullConnection, QueueName, type PromotionJob } from '../queues.js';
 import { promotionCampaignRepository } from '../../modules/promotion/promotion.repository.js';
 import { promotionAccountRepository } from '../../modules/promotion/promotion.repository.js';
 import { promotionLogRepository } from '../../modules/promotion/promotion.repository.js';
+
+const VARIANT_SEP = '\n===VARIANT===\n';
+function parseMessages(raw: string): string[] {
+  return raw.split(VARIANT_SEP).map((s) => s.trim()).filter(Boolean);
+}
 import { promotionAccountService } from '../../modules/promotion/promotion-account.service.js';
 import { sendPromotionMessagesBatch } from '../../modules/promotion/promotion-sender.js';
 import { monitoredGroupRepository } from '../../modules/monitor/monitor.repository.js';
@@ -147,17 +152,24 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
     }
 
     try {
+      // Pick a random message variant for this account (different accounts send different variants)
+      const variants: string[] = parseMessages(campaign.message);
+      const pickedMessage = variants[Math.floor(Math.random() * variants.length)] ?? campaign.message;
+
       await sendPromotionMessagesBatch({
         sessionEnc: account.sessionEnc!,
         targets,
-        message: campaign.message,
+        message: pickedMessage,
         imageUrl: campaign.imageUrl,
         delayMs: delay,
         force: job.data.force,
         onResult: async (target, result) => {
           // Feedback loop: keep DB in sync with real Telegram state after each send attempt.
-          if (result.errorType === 'WRITE_FORBIDDEN' || result.errorType === 'BANNED') {
+          if (result.errorType === 'WRITE_FORBIDDEN') {
             void monitoredGroupRepository.markReadOnlyByTarget(account.id, target).catch(() => undefined);
+          } else if (result.errorType === 'BANNED') {
+            // Account was individually banned by group admin — different from group-level read-only
+            void monitoredGroupRepository.markBannedByTarget(account.id, target).catch(() => undefined);
           } else if (result.errorType === 'NOT_FOUND') {
             void monitoredGroupRepository.markLeftByTarget(account.id, target).catch(() => undefined);
             // Always physically leave on Telegram — not just for invite links.

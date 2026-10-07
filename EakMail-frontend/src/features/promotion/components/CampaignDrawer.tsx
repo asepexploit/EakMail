@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, RefreshCw, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import type { PromotionCampaignDto, PromotionAccountDto, UpsertCampaignRequest } from '@eakmail/shared-types';
 import { Drawer } from '@/components/ui';
 import { Input } from '@/components/ui/Input';
@@ -20,7 +20,7 @@ const SEND_MODE_OPTIONS = [
 
 interface CampaignFormState {
   name: string;
-  message: string;
+  messages: string[]; // 1–5 variants; index 0 is the primary/only message
   imageUrl: string;
   targetGroupsText: string; // newline-separated
   intervalMinutes: number;
@@ -36,7 +36,7 @@ function toForm(c: PromotionCampaignDto | null): CampaignFormState {
   if (!c) {
     return {
       name: '',
-      message: '',
+      messages: [''],
       imageUrl: '',
       targetGroupsText: '',
       intervalMinutes: 60,
@@ -50,7 +50,7 @@ function toForm(c: PromotionCampaignDto | null): CampaignFormState {
   }
   return {
     name: c.name,
-    message: c.message,
+    messages: c.messages && c.messages.length > 0 ? c.messages : [c.message],
     imageUrl: c.imageUrl ?? '',
     targetGroupsText: c.targetGroups.join('\n'),
     intervalMinutes: c.intervalMinutes,
@@ -244,15 +244,35 @@ export function CampaignDrawer({
     }));
   }
 
+  function setMessage(idx: number, value: string) {
+    setForm((p) => {
+      const msgs = [...p.messages];
+      msgs[idx] = value;
+      return { ...p, messages: msgs };
+    });
+  }
+
+  function addVariant() {
+    if (form.messages.length >= 5) return;
+    setForm((p) => ({ ...p, messages: [...p.messages, ''] }));
+  }
+
+  function removeVariant(idx: number) {
+    if (form.messages.length <= 1) return;
+    setForm((p) => ({ ...p, messages: p.messages.filter((_, i) => i !== idx) }));
+  }
+
   function handleSubmit() {
     const targetGroups = form.targetGroupsText
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean);
+    const messages = form.messages.map((m) => m.trim()).filter(Boolean);
 
     onSubmit({
       name: form.name,
-      message: form.message,
+      message: messages[0] ?? '',
+      messages,
       imageUrl: form.imageUrl || null,
       targetGroups,
       intervalMinutes: form.intervalMinutes,
@@ -267,7 +287,7 @@ export function CampaignDrawer({
 
   const canSubmit =
     form.name.trim() !== '' &&
-    form.message.trim() !== '' &&
+    (form.messages[0]?.trim() ?? '') !== '' &&
     form.accountIds.length > 0 &&
     form.activeDays.length > 0;
 
@@ -322,13 +342,53 @@ export function CampaignDrawer({
           )}
         </div>
 
-        <Textarea
-          label="Pesan (Markdown)"
-          rows={5}
-          value={form.message}
-          onChange={(e) => setForm((p) => ({ ...p, message: e.target.value }))}
-          placeholder="Halo! Cek produk terbaru kami di toko kami 🎉"
-        />
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-xs font-medium text-text-muted">
+              Pesan (Markdown) <span className="text-danger">*</span>
+              {form.messages.length > 1 && (
+                <span className="ml-1.5 font-normal text-brand">
+                  — {form.messages.length} varian (dipilih acak per akun)
+                </span>
+              )}
+            </label>
+            {form.messages.length < 5 && (
+              <button
+                type="button"
+                onClick={addVariant}
+                className="flex items-center gap-1 text-xs text-brand hover:underline"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Tambah varian
+              </button>
+            )}
+          </div>
+          <div className="space-y-3">
+            {form.messages.map((msg, idx) => (
+              <div key={idx} className="relative">
+                {form.messages.length > 1 && (
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-text-muted">Varian {idx + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeVariant(idx)}
+                      className="flex items-center gap-1 text-[11px] text-danger hover:underline"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Hapus
+                    </button>
+                  </div>
+                )}
+                <Textarea
+                  rows={5}
+                  value={msg}
+                  onChange={(e) => setMessage(idx, e.target.value)}
+                  placeholder={idx === 0 ? 'Halo! Cek produk terbaru kami di toko kami 🎉' : `Pesan varian ${idx + 1}...`}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
 
         <Input
           label="URL Gambar (opsional)"

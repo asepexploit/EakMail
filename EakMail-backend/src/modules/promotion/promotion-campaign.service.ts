@@ -10,11 +10,24 @@ import type { PromotionCampaign } from '@prisma/client';
 
 type CampaignWithAccounts = PromotionCampaign & { accounts: { accountId: string }[] };
 
+/** Separator used to encode multiple message variants in the single `message` DB column. */
+const VARIANT_SEP = '\n===VARIANT===\n';
+
+function parseMessages(raw: string): string[] {
+  return raw.split(VARIANT_SEP).map((s) => s.trim()).filter(Boolean);
+}
+
+function joinMessages(msgs: string[]): string {
+  return msgs.filter((s) => s.trim()).join(VARIANT_SEP);
+}
+
 function toDto(c: CampaignWithAccounts): PromotionCampaignDto {
+  const messages = parseMessages(c.message);
   return {
     id: c.id,
     name: c.name,
-    message: c.message,
+    message: messages[0] ?? c.message,
+    messages,
     imageUrl: c.imageUrl,
     targetGroups: c.targetGroups as string[],
     intervalMinutes: c.intervalMinutes,
@@ -72,9 +85,13 @@ export const promotionCampaignService = {
   },
 
   async create(input: UpsertCampaignInput): Promise<PromotionCampaignDto> {
-    const { accountIds, ...rest } = input;
+    const { accountIds, messages, ...rest } = input;
+    const storedMessage = messages && messages.length > 1
+      ? joinMessages(messages)
+      : (messages?.[0] ?? rest.message);
     const campaign = await repo.create({
       ...rest,
+      message: storedMessage,
       targetGroups: input.targetGroups,
       activeDays: input.activeDays,
       status: 'ACTIVE',
@@ -91,9 +108,13 @@ export const promotionCampaignService = {
     const existing = await repo.findById(id);
     if (!existing) throw new NotFoundError('PromotionCampaign');
 
-    const { accountIds, ...rest } = input;
+    const { accountIds, messages, ...rest } = input;
+    const storedMessage = messages && messages.length > 1
+      ? joinMessages(messages)
+      : (messages?.[0] ?? rest.message);
     await repo.update(id, {
       ...rest,
+      message: storedMessage,
       targetGroups: input.targetGroups,
       activeDays: input.activeDays,
     });
