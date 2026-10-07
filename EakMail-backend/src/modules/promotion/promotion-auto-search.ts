@@ -77,6 +77,23 @@ export function stopAutoSearch(): void {
   log.info('auto-search: stopped');
 }
 
+let searching = false;
+
+export function isSearchRunning(): boolean {
+  return searching;
+}
+
+export async function triggerSearchNow(): Promise<{ enqueued: number }> {
+  if (searching) return { enqueued: 0 };
+  searching = true;
+  try {
+    const count = await runSearchCycle();
+    return { enqueued: count };
+  } finally {
+    searching = false;
+  }
+}
+
 function scheduleNextSearch(delayMs: number = SEARCH_INTERVAL_MS): void {
   if (searchTimer) clearTimeout(searchTimer);
   searchTimer = setTimeout(async () => {
@@ -89,18 +106,18 @@ function scheduleNextSearch(delayMs: number = SEARCH_INTERVAL_MS): void {
   }, delayMs);
 }
 
-async function runSearchCycle(): Promise<void> {
+async function runSearchCycle(): Promise<number> {
   const keywords = await prisma.autoSearchKeyword.findMany({
     where: { enabled: true },
     select: { keyword: true },
   });
-  if (keywords.length === 0) { log.info('no enabled keywords'); return; }
+  if (keywords.length === 0) { log.info('no enabled keywords'); return 0; }
 
   const accounts = await prisma.promotionAccount.findMany({
     where: { status: 'CONNECTED', sessionEnc: { not: null } },
     select: { id: true, sessionEnc: true },
   });
-  if (accounts.length === 0) { log.info('no connected accounts for search'); return; }
+  if (accounts.length === 0) { log.info('no connected accounts for search'); return 0; }
 
   // Pick random keywords for this cycle
   const shuffled = keywords.sort(() => Math.random() - 0.5);
@@ -124,6 +141,7 @@ async function runSearchCycle(): Promise<void> {
   }
 
   log.info({ totalFound }, 'auto-search: cycle complete');
+  return totalFound;
 }
 
 async function searchAndEnqueue(

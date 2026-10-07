@@ -32,6 +32,30 @@ interface QueueItem {
   processedAt: string | null;
 }
 
+interface AutoSearchStatus {
+  running: boolean;
+}
+
+export function useAutoSearchStatus() {
+  return useQuery<AutoSearchStatus>({
+    queryKey: ['auto-search-status'],
+    queryFn: () => http.get('/promotion/auto-search/status'),
+    refetchInterval: 5_000,
+  });
+}
+
+export function useTriggerSearch() {
+  const qc = useQueryClient();
+  return useMutation<{ ok: boolean; enqueued?: number; message?: string }, Error, void>({
+    mutationFn: () => http.post('/promotion/auto-search/trigger', {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['auto-search-status'] });
+      qc.invalidateQueries({ queryKey: ['auto-search-queue-stats'] });
+      qc.invalidateQueries({ queryKey: ['auto-search-queue'] });
+    },
+  });
+}
+
 export function useAutoSearchKeywords() {
   return useQuery<AutoSearchKeyword[]>({
     queryKey: ['auto-search-keywords'],

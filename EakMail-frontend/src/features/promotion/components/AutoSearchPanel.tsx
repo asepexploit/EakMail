@@ -14,6 +14,8 @@ import {
   useQueueStats,
   useQueueItems,
   useClearQueue,
+  useAutoSearchStatus,
+  useTriggerSearch,
 } from '../api/useAutoSearch';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -35,6 +37,8 @@ export function AutoSearchPanel() {
   const { data: keywords = [], isLoading: kwLoading } = useAutoSearchKeywords();
   const { data: stats } = useQueueStats();
   const { data: queueItems = [] } = useQueueItems(queueFilter || undefined);
+  const { data: searchStatus } = useAutoSearchStatus();
+  const triggerSearch = useTriggerSearch();
   const addKw = useAddKeyword();
   const removeKw = useRemoveKeyword();
   const clearQ = useClearQueue();
@@ -68,6 +72,11 @@ export function AutoSearchPanel() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {searchStatus?.running && (
+            <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-0.5 text-[11px] font-medium text-brand">
+              <Loader2 className="h-3 w-3 animate-spin" /> Mencari...
+            </span>
+          )}
           {stats && (
             <div className="hidden sm:flex items-center gap-2 text-xs">
               <StatBadge label="Antrian" value={stats.pending} color="bg-brand/10 text-brand" />
@@ -92,6 +101,24 @@ export function AutoSearchPanel() {
               <StatCell label="Skip" value={stats.skipped} />
             </div>
           )}
+
+          {/* Trigger button */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface/30">
+            <p className="text-xs text-text-muted">
+              {searchStatus?.running
+                ? 'Sedang mencari grup berdasarkan keywords...'
+                : 'Pencarian otomatis setiap 3 jam. Atau trigger manual:'}
+            </p>
+            <Button
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); triggerSearch.mutate(); }}
+              disabled={searchStatus?.running || triggerSearch.isPending}
+              isLoading={triggerSearch.isPending || searchStatus?.running}
+            >
+              <Search className="h-3.5 w-3.5" />
+              Cari Sekarang
+            </Button>
+          </div>
 
           {/* Keywords section */}
           <div className="px-4 py-3 border-b border-border">

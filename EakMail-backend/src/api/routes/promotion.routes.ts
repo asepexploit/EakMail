@@ -29,6 +29,8 @@ import {
   getQueueStats,
   getQueueItems,
   clearQueue,
+  triggerSearchNow,
+  isSearchRunning,
 } from '../../modules/promotion/promotion-auto-search.js';
 
 const idParam = z.object({ id: z.string().min(1) });
@@ -579,6 +581,16 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ── Auto-Search Keywords & Queue ────────────────────────────────────────
+
+  app.get('/auto-search/status', async () => {
+    return { running: isSearchRunning() };
+  });
+
+  app.post('/auto-search/trigger', async () => {
+    if (isSearchRunning()) return { ok: false, message: 'Search sedang berjalan' };
+    const result = await triggerSearchNow();
+    return { ok: true, enqueued: result.enqueued };
+  });
 
   app.get('/auto-search/keywords', async () => {
     return getKeywords();
