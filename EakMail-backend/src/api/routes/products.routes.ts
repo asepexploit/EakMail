@@ -28,6 +28,7 @@ const upsertSchema = z.object({
   deliveryTemplate: z.string().nullish(),
   externalProductId: z.string().nullish(),
   active: z.boolean().optional(),
+  isEakTele: z.boolean().optional(),
   options: z.array(optionSchema).optional(),
 });
 
