@@ -21,6 +21,7 @@ const SEARCH_INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hours
 const JOIN_DELAY_MIN_MS = 2 * 60 * 1000; // 2 minutes
 const JOIN_DELAY_MAX_MS = 5 * 60 * 1000; // 5 minutes
 const KEYWORDS_PER_CYCLE = 10; // search 10 random keywords per cycle
+const MIN_MEMBER_COUNT = 100; // skip groups with fewer members
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 let joinLoopRunning = false;
@@ -179,26 +180,40 @@ async function searchAndEnqueue(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const chats: any[] = result.chats ?? [];
 
+    let skippedSmall = 0;
+    let skippedKnown = 0;
+
     for (const chat of chats) {
       // Only groups and supergroups (not channels/broadcasts, not private users)
       const isGroup = chat.className === 'Chat' ||
         (chat.className === 'Channel' && chat.megagroup);
       if (!isGroup) continue;
 
+      // Skip groups with < 100 members (or unknown member count)
+      const members = chat.participantsCount ?? 0;
+      if (members < MIN_MEMBER_COUNT) { skippedSmall++; continue; }
+
       const chatId = chat.className === 'Chat'
         ? `-${chat.id}`
         : `-100${chat.id}`;
 
-      // Skip if already in queue or already monitored by any account
+      // Skip if already in queue for this account (any status)
       const existsInQueue = await prisma.autoSearchQueue.findFirst({
         where: { chatId, accountId },
       });
-      if (existsInQueue) continue;
+      if (existsInQueue) { skippedKnown++; continue; }
 
+      // Skip if already monitored by this account
       const existsMonitored = await prisma.monitoredGroup.findFirst({
         where: { chatId, accountId },
       });
-      if (existsMonitored) continue;
+      if (existsMonitored) { skippedKnown++; continue; }
+
+      // Skip if ANY account already LEFT this group (read-only = useless for everyone)
+      const leftByAnyone = await prisma.autoSearchQueue.findFirst({
+        where: { chatId, status: 'LEFT' },
+      });
+      if (leftByAnyone) { skippedKnown++; continue; }
 
       try {
         await prisma.autoSearchQueue.create({
@@ -207,7 +222,7 @@ async function searchAndEnqueue(
             chatId,
             username: chat.username ?? null,
             title: chat.title ?? keyword,
-            memberCount: chat.participantsCount ?? null,
+            memberCount: members,
             keyword,
             status: 'PENDING',
           },
@@ -216,6 +231,10 @@ async function searchAndEnqueue(
       } catch {
         // unique constraint — already enqueued for this account
       }
+    }
+
+    if (skippedSmall > 0 || skippedKnown > 0) {
+      log.info({ keyword, skippedSmall, skippedKnown }, 'search: skipped groups');
     }
 
     if (enqueued > 0) {
@@ -346,14 +365,23 @@ async function processNextInQueue(): Promise<boolean> {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('CHANNELS_TOO_MUCH') || msg.includes('USER_CHANNELS_TOO_MUCH')) {
-        await markFailed(item.id, 'Account joined too many groups');
+        await markFailed(item.id, 'Akun sudah join terlalu banyak grup');
         return true;
       }
       if (msg.includes('INVITE_REQUEST_SENT')) {
-        await prisma.autoSearchQueue.update({
-          where: { id: item.id },
-          data: { status: 'SKIPPED', error: 'Join request sent — needs admin approval', processedAt: new Date() },
-        });
+        await markSkipped(item.id, 'Perlu approval admin — request terkirim');
+        return true;
+      }
+      if (msg.includes('CHANNEL_PRIVATE')) {
+        await markSkipped(item.id, 'Grup private — tidak bisa join');
+        return true;
+      }
+      if (msg.includes('USER_BANNED_IN_CHANNEL') || msg.includes('USER_KICKED')) {
+        await markSkipped(item.id, 'Akun dibanned/dikick dari grup ini');
+        return true;
+      }
+      if (msg.includes('FLOOD') || msg.includes('FloodWaitError')) {
+        await markFailed(item.id, 'Flood wait — coba lagi nanti');
         return true;
       }
       if (msg.includes('USER_ALREADY_PARTICIPANT')) {
@@ -444,6 +472,13 @@ async function markFailed(id: string, error: string): Promise<void> {
   await prisma.autoSearchQueue.update({
     where: { id },
     data: { status: 'FAILED', error, processedAt: new Date() },
+  });
+}
+
+async function markSkipped(id: string, error: string): Promise<void> {
+  await prisma.autoSearchQueue.update({
+    where: { id },
+    data: { status: 'SKIPPED', error, processedAt: new Date() },
   });
 }
 
