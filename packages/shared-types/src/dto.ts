@@ -488,3 +488,33 @@ export interface UpsertCampaignRequest {
   sendMode: CampaignSendMode;
   accountIds: string[];
 }
+
+// ── Bulk Join Scheduler ──────────────────────────────────────────────────────
+
+export interface BulkJoinAccountResult {
+  accountId: string;
+  accountLabel: string;
+  phone: string;
+  ok: boolean;
+  alreadyMember: boolean;
+  requestSent: boolean;
+  error: string | null;
+}
+
+export interface BulkJoinGroupResult {
+  index: number;
+  group: string;
+  done: boolean;
+  accounts: BulkJoinAccountResult[];
+}
+
+export interface BulkJoinJobDto {
+  id: string;
+  totalGroups: number;
+  delayMinutes: number;
+  status: 'RUNNING' | 'COMPLETED' | 'CANCELLED';
+  completedGroups: number;
+  completedAt: string | null;
+  createdAt: string;
+  groups?: BulkJoinGroupResult[]; // only in detail response
+}

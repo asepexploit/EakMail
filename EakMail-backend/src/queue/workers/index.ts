@@ -17,6 +17,7 @@ import { buildPaymentPollWorker } from './payment-poll.worker.js';
 import { buildNotificationsWorker } from './notifications.worker.js';
 import { buildBroadcastWorker } from './broadcast.worker.js';
 import { buildPromotionWorker } from './promotion.worker.js';
+import { buildBulkJoinWorker } from './bulk-join.worker.js';
 
 const log = logger.child({ module: 'workers' });
 
@@ -41,6 +42,8 @@ export function startWorkers(): StartedWorkers {
     // stay under the Bot API rate ceiling, so no queue-level limiter is needed here.
     buildBroadcastWorker({ concurrency: 1 }),
     buildPromotionWorker({ concurrency: 2 }),
+    // Bulk-join runs serially (one group step at a time per job) to respect Telegram rate limits.
+    buildBulkJoinWorker({ concurrency: 1 }),
   ];
 
   for (const worker of workers) {
@@ -69,3 +72,4 @@ export { buildPaymentPollWorker } from './payment-poll.worker.js';
 export { buildNotificationsWorker } from './notifications.worker.js';
 export { buildBroadcastWorker } from './broadcast.worker.js';
 export { buildPromotionWorker } from './promotion.worker.js';
+export { buildBulkJoinWorker } from './bulk-join.worker.js';

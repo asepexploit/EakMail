@@ -12,6 +12,7 @@ export interface JoinResult {
   ok: boolean;
   error?: string;
   alreadyMember?: boolean;
+  requestSent?: boolean; // INVITE_REQUEST_SENT — pending admin approval
 }
 
 /**
@@ -78,6 +79,9 @@ export async function joinGroups(
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('USER_ALREADY_PARTICIPANT') || message.includes('ALREADY')) {
         results.push({ group, ok: true, alreadyMember: true });
+      } else if (message.includes('INVITE_REQUEST_SENT')) {
+        // Group requires admin approval — request sent, not yet joined
+        results.push({ group, ok: false, requestSent: true, error: 'Menunggu persetujuan admin' });
       } else {
         log.warn({ group, err }, 'failed to join group');
         results.push({ group, ok: false, error: friendlyJoinError(message) });

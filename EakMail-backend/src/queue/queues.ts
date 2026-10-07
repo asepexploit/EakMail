@@ -12,6 +12,7 @@ export const QueueName = {
   PAYMENT_POLL: 'payment-poll',
   NOTIFICATIONS: 'notifications',
   PROMOTION: 'promotion',
+  BULK_JOIN: 'bulk-join',
 } as const;
 export type QueueName = (typeof QueueName)[keyof typeof QueueName];
 
@@ -51,12 +52,20 @@ export interface PromotionJob {
   force?: boolean;
 }
 
+export interface BulkJoinGroupJob {
+  bulkJobId: string;
+  groupIndex: number;
+  group: string;
+  totalGroups: number;
+}
+
 export interface JobPayloadMap {
   'order-fulfillment': OrderFulfillmentJob;
   'workflow-run': WorkflowRunJob;
   'payment-poll': PaymentPollJob;
   notifications: NotificationJob;
   promotion: PromotionJob;
+  'bulk-join': BulkJoinGroupJob;
 }
 
 /** BullMQ connection (separate ioredis instance per BullMQ best practice). */
@@ -75,6 +84,7 @@ export function getQueues(): Record<QueueName, Queue> {
     'payment-poll': new Queue(QueueName.PAYMENT_POLL, { connection }),
     notifications: new Queue(QueueName.NOTIFICATIONS, { connection }),
     promotion: new Queue(QueueName.PROMOTION, { connection }),
+    'bulk-join': new Queue(QueueName.BULK_JOIN, { connection }),
   };
   return queues;
 }

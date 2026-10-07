@@ -9,6 +9,7 @@ import { promotionCampaignService } from '../../modules/promotion/promotion-camp
 import { promotionLogRepository, promotionCampaignRepository, promotionAccountRepository } from '../../modules/promotion/promotion.repository.js';
 import { prisma } from '../../db/client.js';
 import { joinGroups } from '../../modules/promotion/promotion-joiner.js';
+import type { BulkJoinGroupJob } from '../../queue/queues.js';
 import { fetchAccountGroups } from '../../modules/promotion/promotion-groups.js';
 import { startMonitor, stopMonitor, isMonitorRunning } from '../../modules/promotion/auto-join-monitor.js';
 import { checkAndLeaveIfReadOnly } from '../../modules/monitor/monitor-groups.service.js';
@@ -271,6 +272,130 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
     if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
     if (!account.sessionEnc) { const e = new Error('Account has no active session'); (e as any).statusCode = 400; throw e; }
     return fetchAccountGroups(account.sessionEnc);
+  });
+
+  // ── Bulk Join Scheduler ───────────────────────────────────────────────────
+
+  const bulkJoinSchema = z.object({
+    groups: z.array(z.string().min(1)).min(1).max(200),
+    delayMinutes: z.number().int().min(1).max(1440).default(30),
+  });
+
+  /** POST /accounts/bulk-join — create a scheduled bulk-join job. */
+  app.post('/accounts/bulk-join', async (req) => {
+    const { groups, delayMinutes } = bulkJoinSchema.parse(req.body);
+    const job = await prisma.bulkJoinJob.create({
+      data: { groups, totalGroups: groups.length, delayMinutes, status: 'RUNNING' },
+    });
+
+    const { getQueues, QueueName } = await import('../../queue/queues.js');
+    const queue = getQueues()[QueueName.BULK_JOIN];
+    for (let i = 0; i < groups.length; i++) {
+      const group = groups[i]!;
+      await queue.add(
+        'join-group',
+        { bulkJobId: job.id, groupIndex: i, group, totalGroups: groups.length } satisfies BulkJoinGroupJob,
+        {
+          delay: i * delayMinutes * 60 * 1000,
+          removeOnComplete: 50,
+          removeOnFail: 50,
+        },
+      );
+    }
+
+    return { jobId: job.id, totalGroups: groups.length, delayMinutes };
+  });
+
+  /** GET /accounts/bulk-join — list recent jobs with progress. */
+  app.get('/accounts/bulk-join', async () => {
+    const jobs = await prisma.bulkJoinJob.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    });
+
+    return Promise.all(jobs.map(async (j) => {
+      const completedGroups = await prisma.bulkJoinLog.groupBy({
+        by: ['groupIndex'],
+        where: { jobId: j.id },
+      });
+      return {
+        id: j.id,
+        groups: j.groups as string[],
+        totalGroups: j.totalGroups,
+        delayMinutes: j.delayMinutes,
+        status: j.status,
+        completedGroups: completedGroups.length,
+        completedAt: j.completedAt?.toISOString() ?? null,
+        createdAt: j.createdAt.toISOString(),
+      };
+    }));
+  });
+
+  /** GET /accounts/bulk-join/:id — single job detail with all logs. */
+  app.get('/accounts/bulk-join/:id', async (req) => {
+    const { id } = idParam.parse(req.params);
+    const job = await prisma.bulkJoinJob.findUnique({
+      where: { id },
+      include: { logs: { orderBy: [{ groupIndex: 'asc' }, { createdAt: 'asc' }] } },
+    });
+    if (!job) { const e = new Error('Not found'); (e as any).statusCode = 404; throw e; }
+
+    // Group logs by groupIndex for easier consumption
+    const byGroup = new Map<number, typeof job.logs>();
+    for (const log of job.logs) {
+      if (!byGroup.has(log.groupIndex)) byGroup.set(log.groupIndex, []);
+      byGroup.get(log.groupIndex)!.push(log);
+    }
+
+    const groups = (job.groups as string[]).map((group, idx) => ({
+      index: idx,
+      group,
+      done: byGroup.has(idx),
+      accounts: (byGroup.get(idx) ?? []).map((l) => ({
+        accountId: l.accountId,
+        accountLabel: l.accountLabel,
+        phone: l.phone,
+        ok: l.ok,
+        alreadyMember: l.alreadyMember,
+        requestSent: l.requestSent,
+        error: l.error,
+      })),
+    }));
+
+    return {
+      id: job.id,
+      totalGroups: job.totalGroups,
+      delayMinutes: job.delayMinutes,
+      status: job.status,
+      completedGroups: byGroup.size,
+      completedAt: job.completedAt?.toISOString() ?? null,
+      createdAt: job.createdAt.toISOString(),
+      groups,
+    };
+  });
+
+  /** DELETE /accounts/bulk-join/:id — cancel a job (remove pending BullMQ steps). */
+  app.delete('/accounts/bulk-join/:id', async (req) => {
+    const { id } = idParam.parse(req.params);
+    const existing = await prisma.bulkJoinJob.findUnique({ where: { id } });
+    if (!existing) { const e = new Error('Not found'); (e as any).statusCode = 404; throw e; }
+
+    await prisma.bulkJoinJob.update({
+      where: { id },
+      data: { status: 'CANCELLED', completedAt: new Date() },
+    });
+
+    // Remove pending/delayed step jobs from the queue.
+    const { getQueues, QueueName } = await import('../../queue/queues.js');
+    const queue = getQueues()[QueueName.BULK_JOIN];
+    const delayed = await queue.getDelayed();
+    await Promise.all(
+      delayed
+        .filter((j) => (j.data as BulkJoinGroupJob).bulkJobId === id)
+        .map((j) => j.remove()),
+    );
+
+    return { ok: true };
   });
 
   // ── Campaigns ─────────────────────────────────────────────────────────────
