@@ -17,7 +17,7 @@ export const monitoredGroupRepository = {
     return prisma.monitoredGroup.upsert({
       where: { accountId_chatId: { accountId, chatId } },
       create: { ...data, account: { connect: { id: accountId } }, chatId },
-      update: { title: data.title, username: data.username, memberCount: data.memberCount, status: data.status, canSendMessages: data.canSendMessages },
+      update: { title: data.title, username: data.username, memberCount: data.memberCount, status: data.status, canSendMessages: data.canSendMessages, sourceLink: data.sourceLink ?? undefined },
     });
   },
 

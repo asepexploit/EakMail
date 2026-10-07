@@ -79,10 +79,10 @@ export async function syncAccountGroups(accountId: string, sessionEnc: string): 
 
 /**
  * Resolve a raw link/username to the identifier GramJS can resolve.
- * Returns username or the original string if it's already a chatId.
+ * Private invite links (t.me/+HASH) must be handled separately via CheckChatInvite.
  */
 function resolveEntityInput(chatIdOrLink: string): string {
-  // https://t.me/username or t.me/username → username
+  // https://t.me/username or t.me/username → username (exclude + to avoid matching invite links)
   const urlMatch = chatIdOrLink.match(/(?:https?:\/\/)?t\.me\/([^\s?#/+]+)/i);
   if (urlMatch?.[1]) return urlMatch[1];
   // @username → username
@@ -91,9 +91,24 @@ function resolveEntityInput(chatIdOrLink: string): string {
   return chatIdOrLink;
 }
 
+/** Extract invite hash from t.me/+HASH or t.me/joinchat/HASH links. */
+function extractInviteHash(link: string): string | null {
+  const m = link.match(/t\.me\/(?:\+|joinchat\/)([^\s?#]+)/i);
+  return m?.[1] ?? null;
+}
+
 /**
  * After joining a group: check if we can send messages.
  * If not, leave immediately and mark READ_ONLY / LEFT.
+ *
+ * Invite links (t.me/+HASH) are resolved via messages.CheckChatInvite which returns
+ * ChatInviteAlready.chat for accounts that already joined — getEntity does not handle
+ * invite-link URLs and would fail, leaving a broken chatId in the DB.
+ *
+ * Two layers of send-permission checks:
+ *   1. entity.broadcast === true          → channel, nobody can post
+ *   2. defaultBannedRights.sendMessages   → group-wide mute
+ *   3. channels.GetParticipant.bannedRights → account individually muted/banned
  */
 export async function checkAndLeaveIfReadOnly(
   accountId: string,
@@ -117,63 +132,93 @@ export async function checkAndLeaveIfReadOnly(
   }
 
   try {
-    // Get full chat info
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let canSend = true;
     let title = chatId;
     let username: string | null = null;
     let type: GroupInfo['type'] = 'group';
     let memberCount: number | null = null;
-
-    const entityInput = resolveEntityInput(chatId);
-    // resolvedChatId will be updated from entity once fetched
     let resolvedChatId = chatId;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let entity: any = null;
+
+    // ── Resolve entity ────────────────────────────────────────────────────
+    const isInviteLink = /(?:https?:\/\/)?t\.me\/(?:\+|joinchat\/)/.test(chatId);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const entity: any = await client.getEntity(entityInput);
-      title = entity.title ?? chatId;
-      username = entity.username ? entity.username.toLowerCase() : null;
-      memberCount = entity.participantsCount ?? null;
-
-      // Compute numeric chatId from entity
-      if (entity.id) {
-        const rawId = String(entity.id);
-        if (entity.broadcast === true || entity.megagroup === true) {
-          resolvedChatId = rawId.startsWith('-') ? rawId : `-100${rawId}`;
-        } else {
-          resolvedChatId = rawId.startsWith('-') ? rawId : `-${rawId}`;
-        }
-      }
-
-      if (entity.broadcast === true) {
-        canSend = false;
-        type = 'channel';
-      } else if (entity.megagroup === true) {
-        type = 'supergroup';
+      if (isInviteLink) {
+        const hash = extractInviteHash(chatId);
+        if (!hash) throw new Error('no invite hash');
+        // CheckChatInvite returns ChatInviteAlready (with .chat) when already a member.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const inv: any = await client.invoke(new Api.messages.CheckChatInvite({ hash }));
+        entity = inv?.chat ?? null;
+        if (!entity) throw new Error('no chat in CheckChatInvite result');
       } else {
-        type = 'group';
-      }
-
-      // Additional check: try to get send permissions from full chat
-      if (canSend) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const peer: any = await client.getInputEntity(entityInput);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const full: any = await client.invoke(new Api.channels.GetFullChannel({ channel: peer }));
-          const defaultBanned = full?.fullChat?.defaultBannedRights;
-          if (defaultBanned?.sendMessages === true) {
-            canSend = false;
-          }
-        } catch {
-          // best-effort — if we can't check, assume ok
-        }
+        entity = await client.getEntity(resolveEntityInput(chatId));
       }
     } catch {
-      // entity fetch failed — keep
+      // Cannot resolve entity — skip upsert to avoid storing a broken chatId.
+      // syncAccountGroups (30-min cycle) will pick this group up correctly.
+      log.warn({ accountId, chatId }, 'checkAndLeaveIfReadOnly: entity unresolvable — skip upsert');
+      return { kept: true, reason: 'entity unresolvable — skipped' };
     }
 
-    // Upsert into MonitoredGroup using resolved numeric chatId
+    // ── Extract basic info ────────────────────────────────────────────────
+    title = entity.title ?? chatId;
+    username = entity.username ? entity.username.toLowerCase() : null;
+    memberCount = entity.participantsCount ?? null;
+
+    if (entity.id) {
+      const rawId = String(entity.id);
+      resolvedChatId = (entity.broadcast === true || entity.megagroup === true)
+        ? (rawId.startsWith('-') ? rawId : `-100${rawId}`)
+        : (rawId.startsWith('-') ? rawId : `-${rawId}`);
+    }
+
+    if (entity.broadcast === true) {
+      canSend = false;
+      type = 'channel';
+    } else if (entity.megagroup === true) {
+      type = 'supergroup';
+    }
+
+    // ── Layer 1: group-wide default banned rights ─────────────────────────
+    if (canSend) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const peer: any = await client.getInputEntity(entity);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const full: any = await client.invoke(new Api.channels.GetFullChannel({ channel: peer }));
+        if (full?.fullChat?.defaultBannedRights?.sendMessages === true) {
+          canSend = false;
+        }
+      } catch {
+        // best-effort
+      }
+    }
+
+    // ── Layer 2: account individually muted / banned ──────────────────────
+    // defaultBannedRights only covers group-wide restrictions.
+    // A personal ban requires inspecting the account's own participant record.
+    if (canSend) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const peer: any = await client.getInputEntity(entity);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const partResult: any = await client.invoke(
+          new Api.channels.GetParticipant({ channel: peer, participant: new Api.InputUserSelf() }),
+        );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const p: any = partResult?.participant;
+        if (p?.className === 'ChannelParticipantBanned' || p?.bannedRights?.sendMessages === true) {
+          canSend = false;
+          log.info({ accountId, chatId: resolvedChatId, title }, 'account personally muted/banned in group');
+        }
+      } catch {
+        // non-fatal: legacy groups or GetParticipant not supported
+      }
+    }
+
+    // ── Upsert with correct numeric chatId ────────────────────────────────
     await repo.upsert(accountId, resolvedChatId, {
       chatId: resolvedChatId,
       username,
@@ -186,10 +231,9 @@ export async function checkAndLeaveIfReadOnly(
     });
 
     if (!canSend) {
-      // Leave the group — no point staying if we can't send
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const peer: any = await client.getInputEntity(entityInput);
+        const peer: any = await client.getInputEntity(entity);
         await client.invoke(new Api.channels.LeaveChannel({ channel: peer }));
         await repo.upsert(accountId, resolvedChatId, {
           chatId: resolvedChatId, username, title, type, memberCount,
