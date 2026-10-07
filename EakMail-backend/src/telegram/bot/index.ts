@@ -48,6 +48,7 @@ import {
 } from './keyboards.js';
 import { registerSendApi } from './sender.js';
 import { resolveBotToken } from './runtime-config.js';
+import { membershipGate, handleMembershipCheck, MEMBERSHIP_CHECK_ACTION } from './handlers/membership.handler.js';
 
 const log = logger.child({ module: 'storefront-bot' });
 
@@ -100,6 +101,12 @@ async function routeMenuAction(ctx: Context, action: string): Promise<void> {
 
 /** Register all command + callback handlers on a Telegraf instance. */
 function registerHandlers(bot: Telegraf): void {
+  // Membership gate runs before every handler.
+  bot.use(membershipGate());
+
+  // "✅ Sudah Bergabung" re-check — wired before other callbacks so it's always reachable.
+  bot.action(MEMBERSHIP_CHECK_ACTION, (ctx) => handleMembershipCheck(ctx, handleStart));
+
   bot.start(handleStart);
   bot.help(handleHelp);
   bot.command('catalog', handleCatalog);

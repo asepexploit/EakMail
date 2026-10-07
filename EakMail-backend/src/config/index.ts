@@ -30,6 +30,11 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((v) => v === 'true'),
+
+  // Comma-separated Telegram channel usernames (e.g. "@eakmails,@channel2").
+  // Users must join ALL listed channels before using the storefront bot.
+  // Empty = gate disabled.
+  REQUIRED_JOIN_CHANNELS: z.string().default(''),
 });
 
 export type AppConfig = z.infer<typeof schema>;
