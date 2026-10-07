@@ -202,7 +202,13 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
             ? null
             : result.errorType === 'SKIP'
               ? 'Pesan terakhir masih milik akun ini — menunggu balasan dulu'
-              : (result.error ?? null);
+              : result.errorType === 'NOT_FOUND'
+                ? 'Akun bukan member grup ini — dihapus dari target, tidak akan dikirim lagi'
+                : result.errorType === 'WRITE_FORBIDDEN'
+                  ? 'Tidak bisa kirim pesan di grup ini (read-only/restricted) — dihapus dari target'
+                  : result.errorType === 'BANNED'
+                    ? 'Akun dibanned dari grup ini — dihapus dari target'
+                    : (result.error ?? null);
 
           await promotionLogRepository.create({
             campaign: { connect: { id: campaignId } },

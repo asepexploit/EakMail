@@ -231,6 +231,11 @@ async function sendOne(
       log.info({ target }, 'channel private / no longer member — will mark LEFT');
       return { ok: false, error: msg, errorType: 'NOT_FOUND' };
     }
+    // PEER_ID_INVALID — account is not a member of the group/channel anymore
+    if (msg.includes('PEER_ID_INVALID') || msg.includes('PeerIdInvalidError')) {
+      log.info({ target }, 'peer id invalid — account not member, will mark LEFT');
+      return { ok: false, error: msg, errorType: 'NOT_FOUND' };
+    }
 
     log.warn({ target, err }, 'promotion send failed');
     return { ok: false, error: msg, errorType: 'OTHER' };

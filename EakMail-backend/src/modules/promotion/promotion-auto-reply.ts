@@ -1,15 +1,17 @@
 /**
  * Auto-reply manager for promotion accounts.
  *
- * When a promotion account has autoReplyEnabled=true, this module starts a
- * persistent GramJS client that listens for incoming private messages (DMs)
- * and immediately replies with the configured message, directing users to order
- * via the configured bot.
+ * Uses **polling** (not GramJS event handlers) because the auto-join-monitor
+ * already proved that NewMessage events are unreliable with MTProto userbots.
  *
- * Key GramJS gotchas applied here:
- * 1. addEventHandler MUST be called BEFORE start(), otherwise early updates are missed.
- * 2. event.isPrivate requires entity fetch; use peerId.className instead.
- * 3. Call getDialogs() after start() to trigger update-state sync with Telegram.
+ * Every POLL_INTERVAL_MS the loop:
+ *   1. Connects a short-lived GramJS client
+ *   2. Calls getDialogs(limit=30) — which returns unread counts per dialog
+ *   3. For each PeerUser dialog with unreadCount > 0 that we haven't replied to
+ *      recently, sends the auto-reply message and marks as read
+ *   4. Disconnects the client
+ *
+ * A cooldown map prevents re-replying to the same user within 24 hours.
  */
 import { logger } from '../../lib/logger.js';
 import { decrypt } from '../../lib/crypto.js';
@@ -20,101 +22,172 @@ const log = logger.child({ module: 'promotion-auto-reply' });
 export const DEFAULT_AUTO_REPLY =
   'Halo! Untuk memesan produk, silakan hubungi @EakMailBot ya 😊';
 
-// In-memory registry: accountId → stop function
-const running = new Map<string, { stop: () => void; clientRef: unknown }>();
+const POLL_INTERVAL_MS = 15_000; // 15 seconds
+const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// In-memory registry: accountId → stop handle
+const running = new Map<string, { stop: () => void }>();
+
+// Per-account cooldown map: accountId → Map<userId, lastRepliedTimestamp>
+const cooldowns = new Map<string, Map<string, number>>();
 
 export function isAutoReplyRunning(accountId: string): boolean {
   return running.has(accountId);
 }
 
-/** Start auto-reply listener for one account. */
+/** Start auto-reply polling loop for one account. */
 export async function startAutoReply(accountId: string): Promise<void> {
-  if (running.has(accountId)) return; // already running
+  if (running.has(accountId)) return;
 
   const account = await prisma.promotionAccount.findUnique({ where: { id: accountId } });
   if (!account?.sessionEnc || !account.autoReplyEnabled) return;
 
+  log.info({ accountId }, 'auto-reply: starting poll loop');
+
+  let stopped = false;
+
+  const pollLoop = async () => {
+    while (!stopped) {
+      try {
+        await pollForDMs(accountId);
+      } catch (err) {
+        log.warn({ accountId, err }, 'auto-reply: poll error');
+      }
+      // Interruptible sleep
+      for (let i = 0; i < POLL_INTERVAL_MS / 1000; i++) {
+        if (stopped) break;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+    log.info({ accountId }, 'auto-reply: poll loop stopped');
+  };
+
+  void pollLoop();
+
+  running.set(accountId, {
+    stop: () => { stopped = true; },
+  });
+
+  log.info({ accountId }, 'auto-reply started — polling every 15s');
+}
+
+/** Poll getDialogs and reply to unread private messages. */
+async function pollForDMs(accountId: string): Promise<void> {
+  const account = await prisma.promotionAccount.findUnique({
+    where: { id: accountId },
+    select: { sessionEnc: true, autoReplyEnabled: true, autoReplyMessage: true },
+  });
+  if (!account?.sessionEnc || !account.autoReplyEnabled) return;
+
   const replyText = account.autoReplyMessage?.trim() || DEFAULT_AUTO_REPLY;
 
+  const { TelegramClient, StringSession, Api } = await loadGramjs();
+  const { config } = await import('../../config/index.js');
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const client: any = new TelegramClient(
+    new StringSession(decrypt(account.sessionEnc)),
+    config.TELEGRAM_API_ID,
+    config.TELEGRAM_API_HASH,
+    { connectionRetries: 2 },
+  );
+
   try {
-    const { TelegramClient, StringSession, NewMessage, Api } = await loadGramjs();
-    const { config } = await import('../../config/index.js');
-    const sessionString = decrypt(account.sessionEnc);
+    await client.connect();
+  } catch (err) {
+    log.warn({ accountId, err }, 'auto-reply: connect failed');
+    return;
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: any = await client.invoke(new Api.messages.GetDialogs({
+      offsetDate: 0,
+      offsetId: 0,
+      offsetPeer: new Api.InputPeerEmpty(),
+      limit: 30,
+      hash: BigInt(0),
+    }));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client: any = new TelegramClient(
-      new StringSession(sessionString),
-      config.TELEGRAM_API_ID,
-      config.TELEGRAM_API_HASH,
-      { connectionRetries: 5, autoReconnect: true },
+    const dialogs: any[] = result.dialogs ?? [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const usersMap = new Map<string, any>(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (result.users ?? []).map((u: any) => [String(u.id), u]),
     );
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handler = async (event: any) => {
+    // Get or create cooldown map for this account
+    if (!cooldowns.has(accountId)) cooldowns.set(accountId, new Map());
+    const cd = cooldowns.get(accountId)!;
+    const now = Date.now();
+
+    for (const dialog of dialogs) {
+      // Only private user chats
+      if (dialog.peer?.className !== 'PeerUser') continue;
+
+      // Skip if no unread messages
+      const unread: number = dialog.unreadCount ?? 0;
+      if (unread === 0) continue;
+
+      const userId = String(dialog.peer.userId);
+
+      // Skip bots and deleted users
+      const user = usersMap.get(userId);
+      if (!user || user.bot || user.deleted) continue;
+
+      // Cooldown — don't re-reply within 24 hours
+      const lastReply = cd.get(userId) ?? 0;
+      if (now - lastReply < COOLDOWN_MS) continue;
+
+      // Send auto-reply
       try {
-        const msg = event.message;
-        if (!msg) return;
-
-        // Skip outgoing messages
-        if (msg.out) return;
-
-        // Only private DMs — peerId.className is reliably set on raw messages
-        // without needing entity fetch (unlike event.isPrivate)
-        const peerClass: string = msg.peerId?.className ?? '';
-        if (peerClass !== 'PeerUser') return;
-
-        // Reply using the sender's peer directly
         await client.invoke(new Api.messages.SendMessage({
-          peer: msg.peerId,
+          peer: new Api.InputPeerUser({
+            userId: dialog.peer.userId,
+            accessHash: BigInt(user.accessHash?.toString() ?? '0'),
+          }),
           message: replyText,
           randomId: BigInt(Math.floor(Math.random() * 1e15)),
         }));
-        log.info({ accountId, peer: String(msg.peerId?.userId) }, 'auto-reply sent');
+
+        // Mark conversation as read
+        await client.invoke(new Api.messages.ReadHistory({
+          peer: new Api.InputPeerUser({
+            userId: dialog.peer.userId,
+            accessHash: BigInt(user.accessHash?.toString() ?? '0'),
+          }),
+          maxId: 0,
+        })).catch(() => undefined);
+
+        cd.set(userId, now);
+        const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
+        log.info({ accountId, userId, name }, 'auto-reply sent');
       } catch (err) {
-        log.warn({ accountId, err }, 'auto-reply send failed');
+        log.warn({ accountId, userId, err }, 'auto-reply: send failed');
       }
-    };
+    }
 
-    // IMPORTANT: register handler BEFORE start() so no early updates are missed
-    const filter = new NewMessage({});
-    client.addEventHandler(handler, filter);
-
-    // start() activates the GramJS update loop. With a valid existing session
-    // the phone/code/password callbacks are never invoked.
-    await client.start({
-      phoneNumber: async () => account.phone,
-      phoneCode: async () => { throw new Error('session already exists'); },
-      password: async () => { throw new Error('2FA not supported in auto-reply'); },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      onError: (err: Error) => log.warn({ accountId, err }, 'auto-reply client error'),
-    });
-
-    // Warm up the update state — Telegram won't push updates until the client
-    // has synced its update sequence; getDialogs triggers that sync.
-    await client.getDialogs({ limit: 1 }).catch(() => undefined);
-
-    const stop = () => {
-      try {
-        client.removeEventHandler(handler, filter);
-        void client.disconnect().catch(() => undefined);
-      } catch {
-        // ignore
-      }
-      running.delete(accountId);
-    };
-
-    running.set(accountId, { stop, clientRef: client });
-    log.info({ accountId }, 'auto-reply listener started');
+    // Prune old cooldown entries (older than 24h)
+    for (const [uid, ts] of cd) {
+      if (now - ts > COOLDOWN_MS) cd.delete(uid);
+    }
   } catch (err) {
-    log.warn({ accountId, err }, 'startAutoReply: failed to start listener');
+    log.warn({ accountId, err }, 'auto-reply: getDialogs failed');
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (client as any)._destroyed = true;
+  await client.disconnect().catch(() => undefined);
 }
 
-/** Stop auto-reply listener for one account. */
+/** Stop auto-reply polling loop for one account. */
 export function stopAutoReply(accountId: string): void {
   const entry = running.get(accountId);
   if (!entry) return;
   entry.stop();
+  running.delete(accountId);
+  cooldowns.delete(accountId);
   log.info({ accountId }, 'auto-reply listener stopped');
 }
 
@@ -131,18 +204,16 @@ export async function startAllAutoReplies(): Promise<void> {
 // ---- lazy GramJS loader -------------------------------------------------------
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type G = any;
-interface GramjsBundle { TelegramClient: G; StringSession: G; NewMessage: G; Api: G }
+interface GramjsBundle { TelegramClient: G; StringSession: G; Api: G }
 let bundle: GramjsBundle | null = null;
 
 async function loadGramjs(): Promise<GramjsBundle> {
   if (bundle) return bundle;
   const tg = await import('telegram');
   const sessions = await import('telegram/sessions/index.js');
-  const events = await import('telegram/events');
   bundle = {
     TelegramClient: (tg as G).TelegramClient,
     StringSession: (sessions as G).StringSession,
-    NewMessage: (events as G).NewMessage,
     Api: (tg as G).Api,
   };
   return bundle;
