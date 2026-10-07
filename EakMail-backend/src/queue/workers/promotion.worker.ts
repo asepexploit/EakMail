@@ -160,11 +160,9 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
             void monitoredGroupRepository.markReadOnlyByTarget(account.id, target).catch(() => undefined);
           } else if (result.errorType === 'NOT_FOUND') {
             void monitoredGroupRepository.markLeftByTarget(account.id, target).catch(() => undefined);
-            // For invite-link targets stored as chatId: physically leave on Telegram.
-            // markLeftByTarget only updates the DB; without this the account stays in the group.
-            if (/(?:https?:\/\/)?t\.me\/(?:\+|joinchat\/)/.test(target)) {
-              void leaveGroup(account.id, account.sessionEnc!, target).catch(() => undefined);
-            }
+            // Always physically leave on Telegram — not just for invite links.
+            // DB-only update leaves the account sitting in the group.
+            void leaveGroup(account.id, account.sessionEnc!, target).catch(() => undefined);
           }
 
           if (result.floodWaitSeconds) {
