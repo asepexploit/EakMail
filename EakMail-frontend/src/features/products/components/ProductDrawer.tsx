@@ -250,16 +250,6 @@ export function ProductDrawer({ open, onClose, product, onSubmit, isSubmitting }
           {featureStrings.products.active}
         </label>
 
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-text">
-          <input
-            type="checkbox"
-            checked={form.isEakTele}
-            onChange={(e) => setForm((prev) => ({ ...prev, isEakTele: e.target.checked }))}
-            className="accent-brand"
-          />
-          Produk EakTele (dijual lewat bot akun Telegram)
-        </label>
-
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-muted">

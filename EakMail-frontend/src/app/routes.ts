@@ -27,6 +27,7 @@ export const routes = {
   monitorGroups: '/monitor/groups',
   monitorActivity: '/monitor/activity',
   monitorMessages: '/monitor/messages',
+  eakteleProducts: '/eaktele/products',
   eakteleStock: '/eaktele/stock',
 } as const;
 

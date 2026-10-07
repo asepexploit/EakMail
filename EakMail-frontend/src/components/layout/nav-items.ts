@@ -94,6 +94,7 @@ export const navGroups: NavGroup[] = [
   {
     label: strings.nav.groups.eaktele,
     items: [
+      { to: routes.eakteleProducts, label: strings.nav.eakteleProducts, icon: Package },
       { to: routes.eakteleStock, label: strings.nav.eakteleStock, icon: Smartphone },
     ],
   },

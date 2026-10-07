@@ -47,6 +47,7 @@ export const strings = {
     monitorGroups: 'Grup & Channel',
     monitorActivity: 'Aktivitas Live',
     monitorMessages: 'Log Pesan',
+    eakteleProducts: 'Produk EakTele',
     eakteleStock: 'Stok Akun Telegram',
   },
 
