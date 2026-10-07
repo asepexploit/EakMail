@@ -132,9 +132,10 @@ async function pollForDMs(accountId: string): Promise<void> {
 
       const userId = String(dialog.peer.userId);
 
-      // Skip bots and deleted users
+      // Skip bots, deleted users, and Telegram official (login codes etc.)
       const user = usersMap.get(userId);
       if (!user || user.bot || user.deleted) continue;
+      if (userId === '777000') continue;
 
       // Cooldown — don't re-reply within 24 hours
       const lastReply = cd.get(userId) ?? 0;
