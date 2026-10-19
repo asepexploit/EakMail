@@ -77,6 +77,8 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/accounts', async () => promotionAccountService.list());
 
+  app.post('/accounts/health-check', async () => promotionAccountService.healthCheck());
+
   app.get('/accounts/:id', async (req) => {
     const { id } = idParam.parse(req.params);
     return promotionAccountService.get(id);

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Wifi, WifiOff, Clock, Ban, Plus, Trash2, KeyRound, Send, Users, Radio, AlertCircle, UserPen, Search, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Wifi, WifiOff, Clock, Ban, Plus, Trash2, KeyRound, Send, Users, Radio, AlertCircle, UserPen, Search, RotateCcw, HeartPulse } from 'lucide-react';
 import { AccountJoinPanel } from '@/features/promotion/components/AccountJoinPanel';
 import { AutoJoinSettings } from '@/features/promotion/components/AutoJoinSettings';
 import { JoinAllPanel } from '@/features/promotion/components/JoinAllPanel';
@@ -16,6 +16,7 @@ import {
   useSubmitPromotionCode,
   useDeletePromotionAccount,
   useAccountStats,
+  useHealthCheck,
 } from '@/features/promotion/api/usePromotionAccounts';
 
 import { Button } from '@/components/ui/Button';
@@ -50,6 +51,8 @@ export default function PromotionAccountsPage() {
   const startLogin = useStartPromotionLogin();
   const submitCode = useSubmitPromotionCode();
   const deleteAccount = useDeletePromotionAccount();
+  const healthCheck = useHealthCheck();
+  const healthCheckRan = useRef(false);
 
   const [step, setStep] = useState<LoginStep>('idle');
   const [label, setLabel] = useState('');
@@ -59,6 +62,13 @@ export default function PromotionAccountsPage() {
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!isLoading && accounts.length > 0 && !healthCheckRan.current) {
+      healthCheckRan.current = true;
+      healthCheck.mutate();
+    }
+  }, [isLoading, accounts.length]);
 
   function openAddModal() {
     setStep('phone');
@@ -119,11 +129,36 @@ export default function PromotionAccountsPage() {
             Akun Telegram (MTProto) untuk mengirim pesan promosi ke grup
           </p>
         </div>
-        <Button onClick={openAddModal}>
-          <Plus className="h-4 w-4" />
-          Tambah Akun
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => healthCheck.mutate()}
+            isLoading={healthCheck.isPending}
+            title="Cek kesehatan semua sesi akun"
+          >
+            <HeartPulse className="h-4 w-4" />
+            {healthCheck.isPending ? 'Mengecek...' : 'Cek Sesi'}
+          </Button>
+          <Button onClick={openAddModal}>
+            <Plus className="h-4 w-4" />
+            Tambah Akun
+          </Button>
+        </div>
       </div>
+
+      {healthCheck.data && !healthCheck.isPending && (
+        <div className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm ${
+          healthCheck.data.dead.length > 0
+            ? 'bg-danger/10 text-danger'
+            : 'bg-success/10 text-success'
+        }`}>
+          <HeartPulse className="h-4 w-4 shrink-0" />
+          {healthCheck.data.dead.length > 0
+            ? `${healthCheck.data.dead.length} akun sesi mati terdeteksi — status diperbarui`
+            : `${healthCheck.data.checked} akun dicek — semua sesi aktif`
+          }
+        </div>
+      )}
 
       {isLoading ? (
         <p className="text-sm text-text-muted">{strings.common.loading}</p>

@@ -109,3 +109,15 @@ export function useUpdateAccountProfile(accountId: string) {
     mutationFn: (body) => http.patch(`/promotion/accounts/${accountId}/profile`, body),
   });
 }
+
+export function useHealthCheck() {
+  const qc = useQueryClient();
+  return useMutation<{ checked: number; dead: string[] }, Error, void>({
+    mutationFn: () => http.post('/promotion/accounts/health-check'),
+    onSuccess: (data) => {
+      if (data.dead.length > 0) {
+        qc.invalidateQueries({ queryKey: [QK] });
+      }
+    },
+  });
+}

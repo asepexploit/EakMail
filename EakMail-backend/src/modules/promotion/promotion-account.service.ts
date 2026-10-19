@@ -6,8 +6,12 @@ import { NotFoundError } from '../../lib/errors.js';
 import { decrypt } from '../../lib/crypto.js';
 import { LoginFlow } from '../../telegram/session-manager/login-flow.js';
 import { promotionAccountRepository as repo } from './promotion.repository.js';
+import { isSessionError, markAccountFromError } from './session-guard.js';
+import { logger } from '../../lib/logger.js';
 import type { PromotionAccountDto } from './promotion.types.js';
 import type { PromotionAccount } from '@prisma/client';
+
+const log = logger.child({ module: 'promotion-account-service' });
 
 const loginFlow = new LoginFlow();
 
@@ -93,4 +97,61 @@ export const promotionAccountService = {
     if (!row?.sessionEnc) return null;
     return decrypt(row.sessionEnc);
   },
+
+  /** Check all CONNECTED accounts by trying to connect. Update status if session is dead. */
+  async healthCheck(): Promise<{ checked: number; dead: string[] }> {
+    const accounts = await repo.findAll();
+    const connected = accounts.filter((a) => a.status === 'CONNECTED' && a.sessionEnc);
+    const dead: string[] = [];
+
+    const results = await Promise.allSettled(
+      connected.map(async (account) => {
+        try {
+          const { TelegramClient, StringSession } = await loadGramjs();
+          const { config } = await import('../../config/index.js');
+          const sessionString = decrypt(account.sessionEnc!);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const client: any = new TelegramClient(
+            new StringSession(sessionString),
+            config.TELEGRAM_API_ID,
+            config.TELEGRAM_API_HASH,
+            { connectionRetries: 1, timeout: 10 },
+          );
+          try {
+            await client.connect();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (client as any)._destroyed = true;
+            await client.disconnect().catch(() => undefined);
+          } catch (err) {
+            if (isSessionError(err)) {
+              await markAccountFromError(account.id, err);
+              dead.push(account.id);
+              log.info({ accountId: account.id, label: account.label }, 'health-check: session dead');
+            }
+          }
+        } catch {
+          // decrypt or load error — skip
+        }
+      }),
+    );
+
+    log.info({ checked: connected.length, dead: dead.length }, 'health-check complete');
+    return { checked: connected.length, dead };
+  },
 };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type G = any;
+interface GramjsBundle { TelegramClient: G; StringSession: G }
+let _gramjsBundle: GramjsBundle | null = null;
+
+async function loadGramjs(): Promise<GramjsBundle> {
+  if (_gramjsBundle) return _gramjsBundle;
+  const tg = await import('telegram');
+  const sessions = await import('telegram/sessions/index.js');
+  _gramjsBundle = {
+    TelegramClient: (tg as G).TelegramClient,
+    StringSession: (sessions as G).StringSession,
+  };
+  return _gramjsBundle;
+}
