@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wifi, WifiOff, Clock, Ban, Plus, Trash2, KeyRound, Send, Users, Radio, AlertCircle, UserPen, Search } from 'lucide-react';
+import { Wifi, WifiOff, Clock, Ban, Plus, Trash2, KeyRound, Send, Users, Radio, AlertCircle, UserPen, Search, RotateCcw } from 'lucide-react';
 import { AccountJoinPanel } from '@/features/promotion/components/AccountJoinPanel';
 import { AutoJoinSettings } from '@/features/promotion/components/AutoJoinSettings';
 import { JoinAllPanel } from '@/features/promotion/components/JoinAllPanel';
@@ -38,6 +38,11 @@ const STATUS_LABEL: Record<string, string> = {
   [PromotionAccountStatus.DISCONNECTED]: 'Terputus',
   [PromotionAccountStatus.FLOOD_WAIT]: 'Flood Wait',
   [PromotionAccountStatus.BANNED]: 'Diblokir',
+};
+
+const STATUS_DETAIL: Partial<Record<string, string>> = {
+  [PromotionAccountStatus.DISCONNECTED]: 'Sesi tidak valid atau kedaluwarsa. Login ulang untuk menghubungkan kembali.',
+  [PromotionAccountStatus.BANNED]: 'Akun ini diblokir oleh Telegram. Gunakan akun lain atau hubungi Telegram support.',
 };
 
 export default function PromotionAccountsPage() {
@@ -138,6 +143,11 @@ export default function PromotionAccountsPage() {
                 key={acc.id}
                 account={acc}
                 onDelete={() => deleteAccount.mutate(acc.id)}
+                onRelogin={() => {
+                  setLabel(acc.label);
+                  setPhone(acc.phone);
+                  openAddModal();
+                }}
               />
             ))}
           </div>
@@ -216,14 +226,15 @@ export default function PromotionAccountsPage() {
   );
 }
 
-function AccountCard({ account, onDelete }: { account: PromotionAccountDto; onDelete: () => void }) {
+function AccountCard({ account, onDelete, onRelogin }: { account: PromotionAccountDto; onDelete: () => void; onRelogin: () => void }) {
   const { data: stats } = useAccountStats(account.id);
   const isConnected = account.status === PromotionAccountStatus.CONNECTED;
+  const needsAttention = account.status === PromotionAccountStatus.DISCONNECTED || account.status === PromotionAccountStatus.BANNED;
   const [profileOpen, setProfileOpen] = useState(false);
   const [dialogsOpen, setDialogsOpen] = useState(false);
 
   return (
-    <Card className="flex flex-col gap-0 p-0 overflow-hidden">
+    <Card className={`flex flex-col gap-0 p-0 overflow-hidden ${needsAttention ? 'ring-1 ring-danger/30' : ''}`}>
       {/* Header */}
       <div className="flex items-start justify-between p-4 pb-3">
         <div className="min-w-0">
@@ -233,7 +244,7 @@ function AccountCard({ account, onDelete }: { account: PromotionAccountDto; onDe
               account.status === PromotionAccountStatus.CONNECTED ? 'bg-success/10 text-success' :
               account.status === PromotionAccountStatus.FLOOD_WAIT ? 'bg-warning/10 text-warning' :
               account.status === PromotionAccountStatus.BANNED ? 'bg-danger/10 text-danger' :
-              'bg-surface text-text-muted'
+              'bg-danger/10 text-danger'
             }`}>
               {STATUS_ICON[account.status]}
               {STATUS_LABEL[account.status]}
@@ -269,6 +280,35 @@ function AccountCard({ account, onDelete }: { account: PromotionAccountDto; onDe
           </button>
         </div>
       </div>
+
+      {/* Status alert banner */}
+      {needsAttention && (
+        <div className={`mx-4 mb-2 flex items-start gap-2 rounded-lg px-3 py-2.5 text-xs ${
+          account.status === PromotionAccountStatus.BANNED
+            ? 'bg-danger/10 text-danger'
+            : 'bg-warning/10 text-warning'
+        }`}>
+          {account.status === PromotionAccountStatus.BANNED ? (
+            <Ban className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          )}
+          <div className="flex-1">
+            <p className="font-medium leading-snug">
+              {STATUS_DETAIL[account.status]}
+            </p>
+            {account.status === PromotionAccountStatus.DISCONNECTED && (
+              <button
+                onClick={onRelogin}
+                className="mt-1.5 inline-flex items-center gap-1 rounded bg-brand px-2.5 py-1 text-xs font-medium text-white hover:bg-brand/90 transition-colors"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Login Ulang
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <ProfileEditModal
         accountId={account.id}

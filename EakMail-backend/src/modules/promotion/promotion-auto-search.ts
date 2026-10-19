@@ -14,6 +14,7 @@ import { logger } from '../../lib/logger.js';
 import { decrypt } from '../../lib/crypto.js';
 import { prisma } from '../../db/client.js';
 import { DEFAULT_KEYWORDS } from './auto-search-keywords.js';
+import { isSessionError, markAccountFromError } from './session-guard.js';
 
 const log = logger.child({ module: 'auto-search' });
 
@@ -164,7 +165,11 @@ async function searchAndEnqueue(
   try {
     await client.connect();
   } catch (err) {
-    log.warn({ accountId, keyword, err }, 'search: connect failed');
+    if (isSessionError(err)) {
+      await markAccountFromError(accountId, err);
+    } else {
+      log.warn({ accountId, keyword, err }, 'search: connect failed');
+    }
     return 0;
   }
 
@@ -323,9 +328,12 @@ async function processNextInQueue(): Promise<boolean> {
   try {
     await client.connect();
   } catch (err) {
+    if (isSessionError(err)) {
+      await markAccountFromError(account.id, err);
+    }
     await prisma.autoSearchQueue.update({
       where: { id: item.id },
-      data: { status: 'FAILED', error: 'Connect failed', processedAt: new Date() },
+      data: { status: 'FAILED', error: isSessionError(err) ? 'Sesi tidak valid' : 'Connect failed', processedAt: new Date() },
     });
     return true;
   }

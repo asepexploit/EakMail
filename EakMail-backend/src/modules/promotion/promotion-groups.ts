@@ -3,6 +3,7 @@
  */
 import { logger } from '../../lib/logger.js';
 import { decrypt } from '../../lib/crypto.js';
+import { isSessionError } from './session-guard.js';
 
 const log = logger.child({ module: 'promotion-groups' });
 
@@ -30,6 +31,9 @@ export async function fetchAccountGroups(sessionEnc: string): Promise<TelegramGr
   try {
     await client.connect();
   } catch (err) {
+    if (isSessionError(err)) {
+      throw new Error('Sesi tidak valid — login ulang');
+    }
     log.warn({ err }, 'fetchAccountGroups: failed to connect');
     return [];
   }

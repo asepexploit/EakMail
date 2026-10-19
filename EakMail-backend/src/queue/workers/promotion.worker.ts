@@ -26,6 +26,7 @@ import { promotionAccountService } from '../../modules/promotion/promotion-accou
 import { sendPromotionMessagesBatch } from '../../modules/promotion/promotion-sender.js';
 import { monitoredGroupRepository } from '../../modules/monitor/monitor.repository.js';
 import { leaveReadOnlyGroupsBulk, leaveGroup } from '../../modules/monitor/monitor-groups.service.js';
+import { isSessionError, markAccountFromError } from '../../modules/promotion/session-guard.js';
 import { prisma } from '../../db/client.js';
 import type { WorkerBuildDeps } from './types.js';
 
@@ -99,8 +100,15 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
 
   const accounts = await promotionAccountRepository.findMany(accountIds);
   const availableAccounts = accounts.filter(
-    (a) => a.status === 'CONNECTED' && (!a.floodUntil || a.floodUntil < new Date()),
+    (a) => (a.status === 'CONNECTED' || (a.status === 'FLOOD_WAIT' && a.floodUntil && a.floodUntil < new Date())),
   );
+
+  for (const acc of availableAccounts) {
+    if (acc.status === 'FLOOD_WAIT') {
+      await promotionAccountRepository.update(acc.id, { status: 'CONNECTED', floodUntil: null });
+      log.info({ accountId: acc.id }, 'flood wait expired — reset to CONNECTED');
+    }
+  }
 
   if (availableAccounts.length === 0) {
     log.warn({ campaignId }, 'no available accounts (all disconnected or flood-waited)');
@@ -172,9 +180,17 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
             void monitoredGroupRepository.markBannedByTarget(account.id, target).catch(() => undefined);
           } else if (result.errorType === 'NOT_FOUND') {
             void monitoredGroupRepository.markLeftByTarget(account.id, target).catch(() => undefined);
-            // Always physically leave on Telegram — not just for invite links.
-            // DB-only update leaves the account sitting in the group.
             void leaveGroup(account.id, account.sessionEnc!, target).catch(() => undefined);
+          } else if (result.errorType === 'SESSION_DEAD') {
+            await markAccountFromError(account.id, new Error(result.error ?? 'Session dead'));
+            await promotionLogRepository.create({
+              campaign: { connect: { id: campaignId } },
+              account: { connect: { id: account.id } },
+              targetGroup: target,
+              status: 'FAILED',
+              errorMessage: 'Sesi Telegram tidak valid — akun ditandai nonaktif',
+            });
+            return;
           }
 
           if (result.floodWaitSeconds) {
@@ -220,7 +236,12 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
         },
       });
     } catch (err) {
-      log.error({ campaignId, accountId: account.id, err }, 'sendPromotionMessagesBatch failed for account');
+      if (isSessionError(err)) {
+        await markAccountFromError(account.id, err);
+        log.warn({ campaignId, accountId: account.id }, 'session dead — account marked');
+      } else {
+        log.error({ campaignId, accountId: account.id, err }, 'sendPromotionMessagesBatch failed for account');
+      }
     }
 
     // After each account's batch: auto-leave any groups now marked READ_ONLY.

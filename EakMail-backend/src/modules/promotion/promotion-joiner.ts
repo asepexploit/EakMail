@@ -4,6 +4,7 @@
  */
 import { logger } from '../../lib/logger.js';
 import { decrypt } from '../../lib/crypto.js';
+import { isSessionError } from './session-guard.js';
 
 const log = logger.child({ module: 'promotion-joiner' });
 
@@ -59,6 +60,9 @@ export async function joinGroups(
   try {
     await client.connect();
   } catch (err) {
+    if (isSessionError(err)) {
+      return groups.map((g) => ({ group: g, ok: false, error: 'Sesi tidak valid — login ulang' }));
+    }
     log.warn({ err }, 'joinGroups: failed to connect');
     return groups.map((g) => ({ group: g, ok: false, error: 'Connection failed' }));
   }

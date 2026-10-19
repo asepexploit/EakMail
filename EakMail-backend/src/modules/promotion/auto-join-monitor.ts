@@ -14,6 +14,7 @@ import { decrypt } from '../../lib/crypto.js';
 import { prisma } from '../../db/client.js';
 import { joinGroups } from './promotion-joiner.js';
 import { checkAndLeaveIfReadOnly, syncAccountGroups, leaveReadOnlyGroupsBulk } from '../monitor/monitor-groups.service.js';
+import { isSessionError, markAccountFromError } from './session-guard.js';
 
 const log = logger.child({ module: 'auto-join-monitor' });
 
@@ -147,7 +148,12 @@ async function pollAccount(accountId: string): Promise<void> {
   try {
     await client.connect();
   } catch (err) {
-    log.warn({ accountId, err }, 'monitor: connect failed in poll');
+    if (isSessionError(err)) {
+      await markAccountFromError(accountId, err);
+      stopMonitor(accountId);
+    } else {
+      log.warn({ accountId, err }, 'monitor: connect failed in poll');
+    }
     return;
   }
 

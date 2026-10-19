@@ -9,6 +9,7 @@ import { promotionCampaignService } from '../../modules/promotion/promotion-camp
 import { promotionLogRepository, promotionCampaignRepository, promotionAccountRepository } from '../../modules/promotion/promotion.repository.js';
 import { prisma } from '../../db/client.js';
 import { joinGroups } from '../../modules/promotion/promotion-joiner.js';
+import { isSessionError, markAccountFromError } from '../../modules/promotion/session-guard.js';
 import type { BulkJoinGroupJob } from '../../queue/queues.js';
 import { fetchAccountGroups } from '../../modules/promotion/promotion-groups.js';
 import { startMonitor, stopMonitor, isMonitorRunning } from '../../modules/promotion/auto-join-monitor.js';
@@ -283,6 +284,11 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
     if (!account.sessionEnc) { const e = new Error('Account has no active session'); (e as any).statusCode = 400; throw e; }
     const results = await joinGroups(account.sessionEnc, groups);
 
+    const allSessionDead = results.length > 0 && results.every((r) => r.error?.includes('Sesi tidak valid'));
+    if (allSessionDead) {
+      await markAccountFromError(id, new Error('Session invalid on join'));
+    }
+
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
       const grp = groups[i];
@@ -343,7 +349,14 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
     const account = await promotionAccountRepository.findById(id);
     if (!account) { const e = new Error('Account not found'); (e as any).statusCode = 404; throw e; }
     if (!account.sessionEnc) { const e = new Error('Account has no active session'); (e as any).statusCode = 400; throw e; }
-    return fetchAccountGroups(account.sessionEnc);
+    try {
+      return await fetchAccountGroups(account.sessionEnc);
+    } catch (err) {
+      if (isSessionError(err) || (err instanceof Error && err.message.includes('Sesi tidak valid'))) {
+        await markAccountFromError(id, err);
+      }
+      throw err;
+    }
   });
 
   // ── Bulk Join Scheduler ───────────────────────────────────────────────────

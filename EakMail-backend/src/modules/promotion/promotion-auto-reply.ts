@@ -16,6 +16,7 @@
 import { logger } from '../../lib/logger.js';
 import { decrypt } from '../../lib/crypto.js';
 import { prisma } from '../../db/client.js';
+import { isSessionError, markAccountFromError } from './session-guard.js';
 
 const log = logger.child({ module: 'promotion-auto-reply' });
 
@@ -95,7 +96,12 @@ async function pollForDMs(accountId: string): Promise<void> {
   try {
     await client.connect();
   } catch (err) {
-    log.warn({ accountId, err }, 'auto-reply: connect failed');
+    if (isSessionError(err)) {
+      await markAccountFromError(accountId, err);
+      stopAutoReply(accountId);
+    } else {
+      log.warn({ accountId, err }, 'auto-reply: connect failed');
+    }
     return;
   }
 

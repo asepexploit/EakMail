@@ -5,10 +5,11 @@
  */
 import { logger } from '../../lib/logger.js';
 import { decrypt } from '../../lib/crypto.js';
+import { isSessionError } from './session-guard.js';
 
 const log = logger.child({ module: 'promotion-sender' });
 
-export type SendErrorType = 'FLOOD_WAIT' | 'WRITE_FORBIDDEN' | 'BANNED' | 'NOT_FOUND' | 'SKIP' | 'OTHER';
+export type SendErrorType = 'FLOOD_WAIT' | 'WRITE_FORBIDDEN' | 'BANNED' | 'NOT_FOUND' | 'SKIP' | 'SESSION_DEAD' | 'OTHER';
 
 export interface SendResult {
   ok: boolean;
@@ -48,7 +49,15 @@ export async function sendPromotionMessagesBatch(params: BatchSendParams): Promi
   );
 
   try {
-    await client.connect();
+    try {
+      await client.connect();
+    } catch (err) {
+      if (isSessionError(err)) {
+        log.warn({ err }, 'session invalid on connect — aborting batch');
+        return [{ target: params.targets[0] ?? '', result: { ok: false, error: String(err instanceof Error ? err.message : err), errorType: 'SESSION_DEAD' } }];
+      }
+      throw err;
+    }
 
     // One GetDialogs call populates the entity cache so numeric chatIds resolve without
     // needing a separate lookup per group (access hashes are stored in GramJS session).
@@ -235,6 +244,11 @@ async function sendOne(
     if (msg.includes('PEER_ID_INVALID') || msg.includes('PeerIdInvalidError')) {
       log.info({ target }, 'peer id invalid — account not member, will mark LEFT');
       return { ok: false, error: msg, errorType: 'NOT_FOUND' };
+    }
+
+    if (isSessionError(err)) {
+      log.warn({ target }, 'session dead during send — will mark account');
+      return { ok: false, error: msg, errorType: 'SESSION_DEAD' };
     }
 
     log.warn({ target, err }, 'promotion send failed');
