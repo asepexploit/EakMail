@@ -139,10 +139,12 @@ export const promotionAccountService = {
             // Probe write: send+delete a message to Saved Messages
             try {
               const { Api } = await import('telegram');
-              const sent = await client.invoke(new Api.messages.SendMessage({
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const sent: any = await client.invoke(new Api.messages.SendMessage({
                 peer: new Api.InputPeerSelf(),
                 message: '​',
-                randomId: BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                randomId: BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)) as any,
               }));
               // Clean up probe message
               const msgId = sent?.updates?.find(
