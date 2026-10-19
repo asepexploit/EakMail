@@ -15,6 +15,8 @@ const SESSION_ERROR_PATTERNS = [
   'SESSION_EXPIRED',
   'USER_DEACTIVATED',
   'USER_DEACTIVATED_BAN',
+  'INPUT_USER_DEACTIVATED',
+  'PHONE_NUMBER_BANNED',
   'AuthKeyError',
   'AuthKeyDuplicatedError',
 ] as const;
@@ -26,7 +28,12 @@ export function isSessionError(err: unknown): boolean {
 
 export function isBanError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return msg.includes('USER_DEACTIVATED') || msg.includes('USER_DEACTIVATED_BAN');
+  return (
+    msg.includes('USER_DEACTIVATED') ||
+    msg.includes('USER_DEACTIVATED_BAN') ||
+    msg.includes('INPUT_USER_DEACTIVATED') ||
+    msg.includes('PHONE_NUMBER_BANNED')
+  );
 }
 
 export async function markAccountFromError(accountId: string, err: unknown): Promise<'BANNED' | 'DISCONNECTED'> {

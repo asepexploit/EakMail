@@ -98,13 +98,17 @@ export const promotionAccountService = {
     return decrypt(row.sessionEnc);
   },
 
-  /** Check all CONNECTED accounts by trying to connect. Update status if session is dead. */
+  /**
+   * Check all CONNECTED accounts by connecting + calling getMe().
+   * GramJS swallows AUTH_KEY_UNREGISTERED at connect time for main senders,
+   * so we must call an actual API method to detect dead sessions.
+   */
   async healthCheck(): Promise<{ checked: number; dead: string[] }> {
     const accounts = await repo.findAll();
     const connected = accounts.filter((a) => a.status === 'CONNECTED' && a.sessionEnc);
     const dead: string[] = [];
 
-    const results = await Promise.allSettled(
+    await Promise.allSettled(
       connected.map(async (account) => {
         try {
           const { TelegramClient, StringSession } = await loadGramjs();
@@ -119,15 +123,19 @@ export const promotionAccountService = {
           );
           try {
             await client.connect();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (client as any)._destroyed = true;
-            await client.disconnect().catch(() => undefined);
+            // getMe() triggers an actual RPC call — this is where
+            // AUTH_KEY_UNREGISTERED / USER_DEACTIVATED surfaces.
+            await client.getMe();
           } catch (err) {
             if (isSessionError(err)) {
               await markAccountFromError(account.id, err);
               dead.push(account.id);
               log.info({ accountId: account.id, label: account.label }, 'health-check: session dead');
             }
+          } finally {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (client as any)._destroyed = true;
+            await client.disconnect().catch(() => undefined);
           }
         } catch {
           // decrypt or load error — skip
