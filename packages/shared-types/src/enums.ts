@@ -130,6 +130,7 @@ export const PromotionAccountStatus = {
   DISCONNECTED: 'DISCONNECTED',
   FLOOD_WAIT: 'FLOOD_WAIT',
   BANNED: 'BANNED',
+  FROZEN: 'FROZEN',
 } as const;
 export type PromotionAccountStatus = (typeof PromotionAccountStatus)[keyof typeof PromotionAccountStatus];
 

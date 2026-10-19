@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Wifi, WifiOff, Clock, Ban, Plus, Trash2, KeyRound, Send, Users, Radio, AlertCircle, UserPen, Search, RotateCcw, HeartPulse } from 'lucide-react';
+import { Wifi, WifiOff, Clock, Ban, Plus, Trash2, KeyRound, Send, Users, Radio, AlertCircle, UserPen, Search, RotateCcw, HeartPulse, Snowflake } from 'lucide-react';
 import { AccountJoinPanel } from '@/features/promotion/components/AccountJoinPanel';
 import { AutoJoinSettings } from '@/features/promotion/components/AutoJoinSettings';
 import { JoinAllPanel } from '@/features/promotion/components/JoinAllPanel';
@@ -32,6 +32,7 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
   [PromotionAccountStatus.DISCONNECTED]: <WifiOff className="h-4 w-4 text-text-muted" />,
   [PromotionAccountStatus.FLOOD_WAIT]: <Clock className="h-4 w-4 text-warning" />,
   [PromotionAccountStatus.BANNED]: <Ban className="h-4 w-4 text-danger" />,
+  [PromotionAccountStatus.FROZEN]: <Snowflake className="h-4 w-4 text-info" />,
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -39,11 +40,13 @@ const STATUS_LABEL: Record<string, string> = {
   [PromotionAccountStatus.DISCONNECTED]: 'Terputus',
   [PromotionAccountStatus.FLOOD_WAIT]: 'Flood Wait',
   [PromotionAccountStatus.BANNED]: 'Diblokir',
+  [PromotionAccountStatus.FROZEN]: 'Dibekukan',
 };
 
 const STATUS_DETAIL: Partial<Record<string, string>> = {
   [PromotionAccountStatus.DISCONNECTED]: 'Sesi tidak valid atau kedaluwarsa. Login ulang untuk menghubungkan kembali.',
   [PromotionAccountStatus.BANNED]: 'Akun ini diblokir oleh Telegram. Gunakan akun lain atau hubungi Telegram support.',
+  [PromotionAccountStatus.FROZEN]: 'Akun dibekukan oleh Telegram (read-only). Tidak bisa kirim pesan. Ajukan banding via @SpamBot atau login ulang.',
 };
 
 export default function PromotionAccountsPage() {
@@ -264,12 +267,12 @@ export default function PromotionAccountsPage() {
 function AccountCard({ account, onDelete, onRelogin }: { account: PromotionAccountDto; onDelete: () => void; onRelogin: () => void }) {
   const { data: stats } = useAccountStats(account.id);
   const isConnected = account.status === PromotionAccountStatus.CONNECTED;
-  const needsAttention = account.status === PromotionAccountStatus.DISCONNECTED || account.status === PromotionAccountStatus.BANNED;
+  const needsAttention = account.status === PromotionAccountStatus.DISCONNECTED || account.status === PromotionAccountStatus.BANNED || account.status === PromotionAccountStatus.FROZEN;
   const [profileOpen, setProfileOpen] = useState(false);
   const [dialogsOpen, setDialogsOpen] = useState(false);
 
   return (
-    <Card className={`flex flex-col gap-0 p-0 overflow-hidden ${needsAttention ? 'ring-1 ring-danger/30' : ''}`}>
+    <Card className={`flex flex-col gap-0 p-0 overflow-hidden ${needsAttention ? `ring-1 ${account.status === PromotionAccountStatus.FROZEN ? 'ring-info/30' : 'ring-danger/30'}` : ''}`}>
       {/* Header */}
       <div className="flex items-start justify-between p-4 pb-3">
         <div className="min-w-0">
@@ -278,6 +281,7 @@ function AccountCard({ account, onDelete, onRelogin }: { account: PromotionAccou
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
               account.status === PromotionAccountStatus.CONNECTED ? 'bg-success/10 text-success' :
               account.status === PromotionAccountStatus.FLOOD_WAIT ? 'bg-warning/10 text-warning' :
+              account.status === PromotionAccountStatus.FROZEN ? 'bg-info/10 text-info' :
               account.status === PromotionAccountStatus.BANNED ? 'bg-danger/10 text-danger' :
               'bg-danger/10 text-danger'
             }`}>
@@ -321,10 +325,14 @@ function AccountCard({ account, onDelete, onRelogin }: { account: PromotionAccou
         <div className={`mx-4 mb-2 flex items-start gap-2 rounded-lg px-3 py-2.5 text-xs ${
           account.status === PromotionAccountStatus.BANNED
             ? 'bg-danger/10 text-danger'
+            : account.status === PromotionAccountStatus.FROZEN
+            ? 'bg-info/10 text-info'
             : 'bg-warning/10 text-warning'
         }`}>
           {account.status === PromotionAccountStatus.BANNED ? (
             <Ban className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          ) : account.status === PromotionAccountStatus.FROZEN ? (
+            <Snowflake className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           ) : (
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           )}
@@ -332,7 +340,7 @@ function AccountCard({ account, onDelete, onRelogin }: { account: PromotionAccou
             <p className="font-medium leading-snug">
               {STATUS_DETAIL[account.status]}
             </p>
-            {account.status === PromotionAccountStatus.DISCONNECTED && (
+            {(account.status === PromotionAccountStatus.DISCONNECTED || account.status === PromotionAccountStatus.FROZEN) && (
               <button
                 onClick={onRelogin}
                 className="mt-1.5 inline-flex items-center gap-1 rounded bg-brand px-2.5 py-1 text-xs font-medium text-white hover:bg-brand/90 transition-colors"

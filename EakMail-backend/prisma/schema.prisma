@@ -422,6 +422,7 @@ enum PromotionAccountStatus {
   DISCONNECTED
   FLOOD_WAIT
   BANNED
+  FROZEN
 }
 
 enum CampaignStatus {

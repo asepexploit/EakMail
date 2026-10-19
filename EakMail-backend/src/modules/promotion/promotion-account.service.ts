@@ -6,7 +6,7 @@ import { NotFoundError } from '../../lib/errors.js';
 import { decrypt } from '../../lib/crypto.js';
 import { LoginFlow } from '../../telegram/session-manager/login-flow.js';
 import { promotionAccountRepository as repo } from './promotion.repository.js';
-import { isSessionError, markAccountFromError } from './session-guard.js';
+import { isSessionError, isFrozenError, isSendToSelfFrozenSignal, markAccountFromError } from './session-guard.js';
 import { logger } from '../../lib/logger.js';
 import type { PromotionAccountDto } from './promotion.types.js';
 import type { PromotionAccount } from '@prisma/client';
@@ -99,9 +99,13 @@ export const promotionAccountService = {
   },
 
   /**
-   * Check all CONNECTED accounts by connecting + calling getMe().
-   * GramJS swallows AUTH_KEY_UNREGISTERED at connect time for main senders,
-   * so we must call an actual API method to detect dead sessions.
+   * Check all CONNECTED accounts with a 3-step probe:
+   * 1. connect()  — catches AUTH_KEY_UNREGISTERED (if not swallowed)
+   * 2. getMe()    — actual RPC; catches dead sessions
+   * 3. sendMessage to Saved Messages — catches frozen accounts
+   *
+   * Frozen accounts pass connect+getMe but fail on write operations
+   * with FROZEN_METHOD_INVALID (420) or PEER_ID_INVALID (406).
    */
   async healthCheck(): Promise<{ checked: number; dead: string[] }> {
     const accounts = await repo.findAll();
@@ -111,26 +115,72 @@ export const promotionAccountService = {
     await Promise.allSettled(
       connected.map(async (account) => {
         try {
-          const { TelegramClient, StringSession } = await loadGramjs();
+          const gramjs = await loadGramjs();
           const { config } = await import('../../config/index.js');
           const sessionString = decrypt(account.sessionEnc!);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const client: any = new TelegramClient(
-            new StringSession(sessionString),
+          const client: any = new gramjs.TelegramClient(
+            new gramjs.StringSession(sessionString),
             config.TELEGRAM_API_ID,
             config.TELEGRAM_API_HASH,
             { connectionRetries: 1, timeout: 10 },
           );
           try {
             await client.connect();
-            // getMe() triggers an actual RPC call — this is where
-            // AUTH_KEY_UNREGISTERED / USER_DEACTIVATED surfaces.
-            await client.getMe();
+            const me = await client.getMe();
+
+            if (me.deleted) {
+              await markAccountFromError(account.id, new Error('USER_DEACTIVATED (user.deleted=true)'));
+              dead.push(account.id);
+              log.info({ accountId: account.id, label: account.label }, 'health-check: account deleted');
+              return;
+            }
+
+            // Probe write: send+delete a message to Saved Messages
+            try {
+              const { Api } = await import('telegram');
+              const sent = await client.invoke(new Api.messages.SendMessage({
+                peer: new Api.InputPeerSelf(),
+                message: '​',
+                randomId: BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)),
+              }));
+              // Clean up probe message
+              const msgId = sent?.updates?.find(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (u: any) => u.className === 'UpdateMessageID',
+              )?.id;
+              if (msgId) {
+                await client.invoke(new Api.messages.DeleteMessages({
+                  id: [msgId],
+                  revoke: true,
+                })).catch(() => undefined);
+              }
+            } catch (sendErr) {
+              if (isFrozenError(sendErr)) {
+                await markAccountFromError(account.id, sendErr);
+                dead.push(account.id);
+                log.info({ accountId: account.id, label: account.label }, 'health-check: account frozen');
+              } else if (isSendToSelfFrozenSignal(sendErr)) {
+                // 406 PEER_ID_INVALID on sendMessage to self = frozen
+                const frozenErr = new Error('FROZEN_METHOD_INVALID (detected via 406 PEER_ID_INVALID on self-send)');
+                await markAccountFromError(account.id, frozenErr);
+                dead.push(account.id);
+                log.info({ accountId: account.id, label: account.label }, 'health-check: account frozen (406 signal)');
+              } else if (isSessionError(sendErr)) {
+                await markAccountFromError(account.id, sendErr);
+                dead.push(account.id);
+                log.info({ accountId: account.id, label: account.label }, 'health-check: session dead');
+              }
+            }
           } catch (err) {
             if (isSessionError(err)) {
               await markAccountFromError(account.id, err);
               dead.push(account.id);
               log.info({ accountId: account.id, label: account.label }, 'health-check: session dead');
+            } else if (isFrozenError(err)) {
+              await markAccountFromError(account.id, err);
+              dead.push(account.id);
+              log.info({ accountId: account.id, label: account.label }, 'health-check: account frozen');
             }
           } finally {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -5,11 +5,11 @@
  */
 import { logger } from '../../lib/logger.js';
 import { decrypt } from '../../lib/crypto.js';
-import { isSessionError } from './session-guard.js';
+import { isSessionError, isFrozenError, isSessionOrFrozenError } from './session-guard.js';
 
 const log = logger.child({ module: 'promotion-sender' });
 
-export type SendErrorType = 'FLOOD_WAIT' | 'WRITE_FORBIDDEN' | 'BANNED' | 'NOT_FOUND' | 'SKIP' | 'SESSION_DEAD' | 'OTHER';
+export type SendErrorType = 'FLOOD_WAIT' | 'WRITE_FORBIDDEN' | 'BANNED' | 'NOT_FOUND' | 'SKIP' | 'SESSION_DEAD' | 'FROZEN' | 'OTHER';
 
 export interface SendResult {
   ok: boolean;
@@ -244,6 +244,11 @@ async function sendOne(
     if (msg.includes('PEER_ID_INVALID') || msg.includes('PeerIdInvalidError')) {
       log.info({ target }, 'peer id invalid — account not member, will mark LEFT');
       return { ok: false, error: msg, errorType: 'NOT_FOUND' };
+    }
+
+    if (isFrozenError(err)) {
+      log.warn({ target }, 'account frozen during send — will mark account');
+      return { ok: false, error: msg, errorType: 'FROZEN' };
     }
 
     if (isSessionError(err)) {

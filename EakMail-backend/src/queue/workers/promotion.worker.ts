@@ -26,7 +26,7 @@ import { promotionAccountService } from '../../modules/promotion/promotion-accou
 import { sendPromotionMessagesBatch } from '../../modules/promotion/promotion-sender.js';
 import { monitoredGroupRepository } from '../../modules/monitor/monitor.repository.js';
 import { leaveReadOnlyGroupsBulk, leaveGroup } from '../../modules/monitor/monitor-groups.service.js';
-import { isSessionError, markAccountFromError } from '../../modules/promotion/session-guard.js';
+import { isSessionError, isSessionOrFrozenError, markAccountFromError } from '../../modules/promotion/session-guard.js';
 import { prisma } from '../../db/client.js';
 import type { WorkerBuildDeps } from './types.js';
 
@@ -191,6 +191,16 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
               errorMessage: 'Sesi Telegram tidak valid — akun ditandai nonaktif',
             });
             return;
+          } else if (result.errorType === 'FROZEN') {
+            await markAccountFromError(account.id, new Error(result.error ?? 'FROZEN_METHOD_INVALID'));
+            await promotionLogRepository.create({
+              campaign: { connect: { id: campaignId } },
+              account: { connect: { id: account.id } },
+              targetGroup: target,
+              status: 'FAILED',
+              errorMessage: 'Akun dibekukan oleh Telegram (read-only) — tidak bisa kirim pesan',
+            });
+            return;
           }
 
           if (result.floodWaitSeconds) {
@@ -236,9 +246,9 @@ async function runCampaign(job: Job<PromotionJob>): Promise<void> {
         },
       });
     } catch (err) {
-      if (isSessionError(err)) {
+      if (isSessionOrFrozenError(err)) {
         await markAccountFromError(account.id, err);
-        log.warn({ campaignId, accountId: account.id }, 'session dead — account marked');
+        log.warn({ campaignId, accountId: account.id }, 'session dead or frozen — account marked');
       } else {
         log.error({ campaignId, accountId: account.id, err }, 'sendPromotionMessagesBatch failed for account');
       }
