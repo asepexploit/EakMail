@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   RefreshCw, Loader2, CheckCircle2, XCircle, AlertTriangle,
-  Clock, Play, ChevronDown, ChevronUp, Trash2, RotateCcw,
+  Clock, ChevronDown, ChevronUp, Trash2, RotateCcw,
   Activity, Server, Zap, Layers,
 } from 'lucide-react';
 import { http } from '@/lib/http';
