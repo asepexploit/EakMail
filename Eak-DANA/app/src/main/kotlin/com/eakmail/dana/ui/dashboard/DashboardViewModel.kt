@@ -11,7 +11,9 @@ import com.eakmail.dana.data.repository.DanaEventRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -42,6 +44,25 @@ class DashboardViewModel @Inject constructor(
     init {
         observeQueue()
         refresh()
+        startHeartbeat()
+    }
+
+    private fun startHeartbeat() {
+        viewModelScope.launch {
+            while (isActive) {
+                if (configPreferences.isConfigured()) {
+                    try {
+                        val response = withContext(Dispatchers.IO) { repository.fetchStatus() }
+                        if (response?.isSuccessful == true) {
+                            _uiState.update {
+                                it.copy(connectionStatus = ConnectionStatus.OK, serverStatus = response.body())
+                            }
+                        }
+                    } catch (_: Exception) { }
+                }
+                delay(30_000L)
+            }
+        }
     }
 
     private fun observeQueue() {

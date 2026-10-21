@@ -5,6 +5,7 @@ export interface DanaDevice {
   label: string;
   createdAt: string;
   revokedAt: string | null;
+  lastSeenAt: string | null;
 }
 
 export interface DanaDeviceRegistered extends DanaDevice {

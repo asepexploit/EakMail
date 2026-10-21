@@ -690,12 +690,13 @@ enum DanaEventStatus {
 }
 
 model DanaDevice {
-  id         String    @id @default(cuid())
-  label      String
-  tokenHash  String    @unique // SHA-256 of the plain bearer token (never store plain)
-  revokedAt  DateTime?
-  createdAt  DateTime  @default(now())
-  events     DanaEvent[]
+  id          String    @id @default(cuid())
+  label       String
+  tokenHash   String    @unique // SHA-256 of the plain bearer token (never store plain)
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  lastSeenAt  DateTime? // updated on every heartbeat ping from APK
+  events      DanaEvent[]
 
   @@index([tokenHash])
 }

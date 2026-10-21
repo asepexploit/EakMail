@@ -1,8 +1,24 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Smartphone, Plus, Trash2, Copy, Check } from 'lucide-react';
+import { Smartphone, Plus, Trash2, Copy, Check, Wifi, WifiOff } from 'lucide-react';
 import { danaApi, type DanaDevice } from '@/features/dana/api/dana.api';
 import { formatDateTime } from '@/lib/format';
+
+function DeviceOnlineStatus({ lastSeenAt }: { lastSeenAt: string | null }) {
+  if (!lastSeenAt) return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+      <WifiOff className="h-3 w-3" /> Belum pernah online
+    </span>
+  );
+  const diffSec = (Date.now() - new Date(lastSeenAt).getTime()) / 1000;
+  const isOnline = diffSec < 90;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${isOnline ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}`}>
+      {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+      {isOnline ? 'Online' : `Offline ${Math.floor(diffSec / 60)}m lalu`}
+    </span>
+  );
+}
 
 export function DanaDevicesPage() {
   const qc = useQueryClient();
@@ -13,6 +29,7 @@ export function DanaDevicesPage() {
   const { data: devices = [], isLoading } = useQuery({
     queryKey: ['dana-devices'],
     queryFn: danaApi.listDevices,
+    refetchInterval: 30_000,
   });
 
   const register = useMutation({
@@ -121,7 +138,8 @@ export function DanaDevicesPage() {
               <tr>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Label</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Didaftarkan</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Koneksi</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Token</th>
                 <th className="px-5 py-3" />
               </tr>
             </thead>
@@ -138,10 +156,11 @@ export function DanaDevicesPage() {
                         Dicabut
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                        Aktif
-                      </span>
+                      <DeviceOnlineStatus lastSeenAt={d.lastSeenAt} />
                     )}
+                  </td>
+                  <td className="px-5 py-3 text-xs text-gray-400 dark:text-gray-500">
+                    {d.lastSeenAt ? formatDateTime(d.lastSeenAt) : '—'}
                   </td>
                   <td className="px-5 py-3 text-right">
                     {!d.revokedAt && (

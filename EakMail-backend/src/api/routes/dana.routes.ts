@@ -66,6 +66,7 @@ export async function danaRoutes(app: FastifyInstance) {
    */
   app.get('/status', async (req, reply) => {
     const device = await requireDevice(req);
+    await danaDeviceService.heartbeat(device.id);
     const status = await danaEventService.getDeviceStatus(device.id);
     return reply.code(200).send(status);
   });

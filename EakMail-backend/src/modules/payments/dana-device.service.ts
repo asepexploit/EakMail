@@ -41,10 +41,18 @@ export const danaDeviceService = {
     return device;
   },
 
+  /** Update lastSeenAt for a device — called on every heartbeat/status ping. */
+  async heartbeat(deviceId: string): Promise<void> {
+    await prisma.danaDevice.update({
+      where: { id: deviceId },
+      data: { lastSeenAt: new Date() },
+    });
+  },
+
   /** List all registered devices (dashboard). */
   async list() {
     return prisma.danaDevice.findMany({
-      select: { id: true, label: true, revokedAt: true, createdAt: true },
+      select: { id: true, label: true, revokedAt: true, createdAt: true, lastSeenAt: true },
       orderBy: { createdAt: 'desc' },
     });
   },
