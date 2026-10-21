@@ -105,6 +105,8 @@ export const navGroups: NavGroup[] = [
       { to: routes.payments, label: strings.nav.payments, icon: CreditCard },
       { to: routes.settings, label: strings.nav.settings, icon: Settings },
       { to: routes.systemMonitor, label: strings.nav.systemMonitor, icon: Gauge },
+      { to: routes.danaDevices, label: strings.nav.danaDevices, icon: Smartphone },
+      { to: routes.danaEvents, label: strings.nav.danaEvents, icon: CreditCard },
     ],
   },
 ];

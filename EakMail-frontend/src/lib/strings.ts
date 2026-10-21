@@ -50,6 +50,8 @@ export const strings = {
     eakteleProducts: 'Produk EakTele',
     eakteleStock: 'Stok Akun Telegram',
     systemMonitor: 'System Monitor',
+    danaDevices: 'DANA Devices',
+    danaEvents: 'DANA Events',
   },
 
   /** Reusable action labels. */

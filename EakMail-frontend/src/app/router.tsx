@@ -29,6 +29,8 @@ import MonitorMessagesPage from '@/pages/monitor/MonitorMessagesPage';
 import { EakTeleStockPage } from '@/pages/eaktele/EakTeleStockPage';
 import { EakTeleProductsPage } from '@/pages/eaktele/EakTeleProductsPage';
 import { SystemMonitorPage } from '@/pages/system-monitor/SystemMonitorPage';
+import { DanaDevicesPage } from '@/pages/dana/DanaDevicesPage';
+import { DanaEventsPage } from '@/pages/dana/DanaEventsPage';
 import { routes } from './routes';
 
 /**
@@ -77,6 +79,8 @@ export const router = createBrowserRouter([
           { path: routes.eakteleProducts, element: <EakTeleProductsPage /> },
           { path: routes.eakteleStock, element: <EakTeleStockPage /> },
           { path: routes.systemMonitor, element: <SystemMonitorPage /> },
+          { path: routes.danaDevices, element: <DanaDevicesPage /> },
+          { path: routes.danaEvents, element: <DanaEventsPage /> },
           { path: '*', element: <NotFoundPage /> },
         ],
       },

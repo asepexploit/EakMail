@@ -30,6 +30,8 @@ export const routes = {
   eakteleProducts: '/eaktele/products',
   eakteleStock: '/eaktele/stock',
   systemMonitor: '/system/monitor',
+  danaDevices: '/dana/devices',
+  danaEvents: '/dana/events',
 } as const;
 
 export type RouteKey = keyof typeof routes;
