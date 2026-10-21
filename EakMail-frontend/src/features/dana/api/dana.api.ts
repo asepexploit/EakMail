@@ -25,10 +25,10 @@ export interface DanaEvent {
 }
 
 export const danaApi = {
-  listDevices: () => http.get<DanaDevice[]>('/payments/dana/devices'),
+  listDevices: () => http.get<DanaDevice[]>('/dana/devices'),
   registerDevice: (label: string) =>
-    http.post<DanaDeviceRegistered>('/payments/dana/devices/register', { label }),
+    http.post<DanaDeviceRegistered>('/dana/devices/register', { label }),
   revokeDevice: (deviceId: string) =>
-    http.post<void>('/payments/dana/devices/revoke', { device_id: deviceId }),
-  listEvents: () => http.get<DanaEvent[]>('/payments/dana/events'),
+    http.post<void>('/dana/devices/revoke', { device_id: deviceId }),
+  listEvents: () => http.get<DanaEvent[]>('/dana/events'),
 };

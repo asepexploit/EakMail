@@ -73,7 +73,7 @@ export async function buildServer() {
       await api.register(monitorRoutes, { prefix: '/monitor' });
       await api.register(eakTeleRoutes, { prefix: '/eaktele' });
       await api.register(queueMonitorRoutes, { prefix: '/queue-monitor' });
-      await api.register(danaRoutes, { prefix: '/payments/dana' });
+      await api.register(danaRoutes, { prefix: '/dana' });
     },
     { prefix: '/api' },
   );

@@ -9,13 +9,13 @@ import retrofit2.http.POST
 /** Retrofit interface for EakMail Backend DANA endpoints. */
 interface DanaApiService {
 
-    @POST("api/payments/dana/event")
+    @POST("api/dana/event")
     suspend fun sendEvent(
         @Header("Authorization") bearer: String,
         @Body body: DanaEventRequest,
     ): Response<DanaEventResponse>
 
-    @GET("api/payments/dana/status")
+    @GET("api/dana/status")
     suspend fun getStatus(
         @Header("Authorization") bearer: String,
     ): Response<DanaStatusResponse>
