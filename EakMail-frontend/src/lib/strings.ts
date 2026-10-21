@@ -49,6 +49,7 @@ export const strings = {
     monitorMessages: 'Log Pesan',
     eakteleProducts: 'Produk EakTele',
     eakteleStock: 'Stok Akun Telegram',
+    systemMonitor: 'System Monitor',
   },
 
   /** Reusable action labels. */

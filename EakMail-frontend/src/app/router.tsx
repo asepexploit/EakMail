@@ -28,6 +28,7 @@ import MonitorActivityPage from '@/pages/monitor/MonitorActivityPage';
 import MonitorMessagesPage from '@/pages/monitor/MonitorMessagesPage';
 import { EakTeleStockPage } from '@/pages/eaktele/EakTeleStockPage';
 import { EakTeleProductsPage } from '@/pages/eaktele/EakTeleProductsPage';
+import { SystemMonitorPage } from '@/pages/system-monitor/SystemMonitorPage';
 import { routes } from './routes';
 
 /**
@@ -75,6 +76,7 @@ export const router = createBrowserRouter([
           { path: routes.monitorActivity, element: <MonitorActivityPage /> },
           { path: routes.eakteleProducts, element: <EakTeleProductsPage /> },
           { path: routes.eakteleStock, element: <EakTeleStockPage /> },
+          { path: routes.systemMonitor, element: <SystemMonitorPage /> },
           { path: '*', element: <NotFoundPage /> },
         ],
       },

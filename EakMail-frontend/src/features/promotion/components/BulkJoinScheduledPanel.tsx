@@ -194,8 +194,8 @@ function JobCard({ job }: { job: BulkJoinJobDto }) {
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-export function BulkJoinScheduledPanel() {
-  const [open, setOpen] = useState(false);
+export function BulkJoinScheduledPanel({ embedded = false }: { embedded?: boolean }) {
+  const [open, setOpen] = useState(embedded);
   const [groupsText, setGroupsText] = useState('');
   const [delayMinutes, setDelayMinutes] = useState(30);
   const { data: jobs = [] } = useBulkJoinJobs();
@@ -215,30 +215,8 @@ export function BulkJoinScheduledPanel() {
 
   const runningCount = jobs.filter((j) => j.status === 'RUNNING').length;
 
-  return (
-    <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-3"
-      >
-        <Clock className="h-4 w-4 text-brand shrink-0" />
-        <div className="flex-1 text-left">
-          <span className="text-sm font-semibold text-text">Join Terjadwal (per Grup)</span>
-          <p className="text-xs text-text-muted mt-0.5">
-            Join semua akun ke setiap grup dengan delay — ditinggal pun tetap jalan di background
-          </p>
-        </div>
-        {runningCount > 0 && (
-          <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand">
-            {runningCount} berjalan
-          </span>
-        )}
-        {open ? <ChevronUp className="h-4 w-4 text-text-muted shrink-0" /> : <ChevronDown className="h-4 w-4 text-text-muted shrink-0" />}
-      </button>
-
-      {open && (
-        <div className="space-y-4 pt-1">
+  const content = open && (
+        <div className={`space-y-4 ${embedded ? 'px-4 pb-4 pt-3' : 'pt-1'}`}>
           {/* Form */}
           <div className="space-y-3">
             <div>
@@ -304,7 +282,32 @@ export function BulkJoinScheduledPanel() {
             </div>
           )}
         </div>
-      )}
+  );
+
+  if (embedded) return content;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-3"
+      >
+        <Clock className="h-4 w-4 text-brand shrink-0" />
+        <div className="flex-1 text-left">
+          <span className="text-sm font-semibold text-text">Join Terjadwal (per Grup)</span>
+          <p className="text-xs text-text-muted mt-0.5">
+            Join semua akun ke setiap grup dengan delay — ditinggal pun tetap jalan di background
+          </p>
+        </div>
+        {runningCount > 0 && (
+          <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand">
+            {runningCount} berjalan
+          </span>
+        )}
+        {open ? <ChevronUp className="h-4 w-4 text-text-muted shrink-0" /> : <ChevronDown className="h-4 w-4 text-text-muted shrink-0" />}
+      </button>
+      {content}
     </div>
   );
 }

@@ -9,3 +9,6 @@ build/
 coverage/
 EakMail-backend/prisma/*.db
 EakMail-frontend/.vite/
+.playwright-mcp/
+.vscode/
+EakMail-frontend/tsconfig.tsbuildinfo

@@ -22,6 +22,7 @@ import { startPaymentSweep } from './modules/payments/payment-sweep.js';
 import { startAllMonitors } from './modules/promotion/auto-join-monitor.js';
 import { startAllAutoReplies } from './modules/promotion/promotion-auto-reply.js';
 import { startAutoSearch } from './modules/promotion/promotion-auto-search.js';
+import { promotionCampaignService } from './modules/promotion/promotion-campaign.service.js';
 
 const log = logger.child({ module: 'main' });
 
@@ -59,6 +60,11 @@ async function main(): Promise<void> {
 
   // Start auto-search: find new groups by keywords every 3h, join them gradually
   await startAutoSearch().catch((err) => log.warn({ err }, 'startAutoSearch failed (non-fatal)'));
+
+  // Re-register BullMQ repeatable jobs for all ACTIVE promotion campaigns
+  await promotionCampaignService.rescheduleAllActive()
+    .then((n) => log.info({ count: n }, 'promotion campaigns rescheduled'))
+    .catch((err) => log.warn({ err }, 'rescheduleAllActive failed (non-fatal)'));
 
   // ---- graceful shutdown ----------------------------------------------------
   let shuttingDown = false;

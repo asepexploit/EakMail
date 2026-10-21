@@ -41,7 +41,7 @@ export function startWorkers(): StartedWorkers {
     // Broadcast runs serially (one fan-out at a time) and paces its own sends internally to
     // stay under the Bot API rate ceiling, so no queue-level limiter is needed here.
     buildBroadcastWorker({ concurrency: 1 }),
-    buildPromotionWorker({ concurrency: 2 }),
+    buildPromotionWorker({ concurrency: 10 }),
     // Bulk-join runs serially (one group step at a time per job) to respect Telegram rate limits.
     buildBulkJoinWorker({ concurrency: 1 }),
   ];

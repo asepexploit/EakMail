@@ -29,8 +29,8 @@ const STATUS_CONFIG: Record<string, { icon: React.ReactNode; label: string; colo
   SKIPPED: { icon: <SkipForward className="h-3.5 w-3.5" />, label: 'Dilewati', color: 'text-text-muted' },
 };
 
-export function AutoSearchPanel() {
-  const [open, setOpen] = useState(false);
+export function AutoSearchPanel({ embedded = false }: { embedded?: boolean }) {
+  const [open, setOpen] = useState(embedded);
   const [newKeyword, setNewKeyword] = useState('');
   const [queueFilter, setQueueFilter] = useState<string>('');
 
@@ -52,44 +52,8 @@ export function AutoSearchPanel() {
     setNewKeyword('');
   }
 
-  return (
-    <Card className="overflow-hidden">
-      {/* Header — always visible */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-4 py-3 hover:bg-surface-hover transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand/10">
-            <Search className="h-4 w-4 text-brand" />
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-semibold text-text">Auto-Search & Join Grup</p>
-            <p className="text-xs text-text-muted">
-              Cari grup Telegram otomatis setiap 3 jam, join pelan-pelan
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {searchStatus?.running && (
-            <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-0.5 text-[11px] font-medium text-brand">
-              <Loader2 className="h-3 w-3 animate-spin" /> Mencari...
-            </span>
-          )}
-          {stats && (
-            <div className="hidden sm:flex items-center gap-2 text-xs">
-              <StatBadge label="Antrian" value={stats.pending} color="bg-brand/10 text-brand" />
-              <StatBadge label="Joined" value={stats.joined} color="bg-success/10 text-success" />
-              <StatBadge label="Gagal" value={stats.failed + stats.left} color="bg-danger/10 text-danger" />
-            </div>
-          )}
-          {open ? <ChevronUp className="h-4 w-4 text-text-muted" /> : <ChevronDown className="h-4 w-4 text-text-muted" />}
-        </div>
-      </button>
-
-      {open && (
-        <div className="border-t border-border">
+  const content = open && (
+        <div className={embedded ? '' : 'border-t border-border'}>
           {/* Stats bar */}
           {stats && (
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-px bg-border">
@@ -264,7 +228,45 @@ export function AutoSearchPanel() {
             )}
           </div>
         </div>
-      )}
+  );
+
+  if (embedded) return content;
+
+  return (
+    <Card className="overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-3 hover:bg-surface-hover transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand/10">
+            <Search className="h-4 w-4 text-brand" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-semibold text-text">Auto-Search & Join Grup</p>
+            <p className="text-xs text-text-muted">
+              Cari grup Telegram otomatis setiap 3 jam, join pelan-pelan
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {searchStatus?.running && (
+            <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-0.5 text-[11px] font-medium text-brand">
+              <Loader2 className="h-3 w-3 animate-spin" /> Mencari...
+            </span>
+          )}
+          {stats && (
+            <div className="hidden sm:flex items-center gap-2 text-xs">
+              <StatBadge label="Antrian" value={stats.pending} color="bg-brand/10 text-brand" />
+              <StatBadge label="Joined" value={stats.joined} color="bg-success/10 text-success" />
+              <StatBadge label="Gagal" value={stats.failed + stats.left} color="bg-danger/10 text-danger" />
+            </div>
+          )}
+          {open ? <ChevronUp className="h-4 w-4 text-text-muted" /> : <ChevronDown className="h-4 w-4 text-text-muted" />}
+        </div>
+      </button>
+      {content}
     </Card>
   );
 }

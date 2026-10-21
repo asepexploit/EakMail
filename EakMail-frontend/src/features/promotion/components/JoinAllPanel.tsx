@@ -36,10 +36,11 @@ function useJoinAll() {
 
 interface JoinAllPanelProps {
   accounts: PromotionAccountDto[];
+  embedded?: boolean;
 }
 
-export function JoinAllPanel({ accounts }: JoinAllPanelProps) {
-  const [open, setOpen] = useState(false);
+export function JoinAllPanel({ accounts, embedded = false }: JoinAllPanelProps) {
+  const [open, setOpen] = useState(embedded);
   const [input, setInput] = useState('');
   const mutation = useJoinAll();
 
@@ -58,28 +59,8 @@ export function JoinAllPanel({ accounts }: JoinAllPanelProps) {
   const totalOk = accountResults.reduce((s, a) => s + a.results.filter((r) => r.ok).length, 0);
   const totalFail = accountResults.reduce((s, a) => s + a.results.filter((r) => !r.ok).length, 0);
 
-  return (
-    <div className="rounded-lg border border-border bg-surface overflow-hidden">
-      {/* Header toggle */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-text hover:bg-surface/80 transition-colors"
-      >
-        <span className="flex items-center gap-2">
-          <LogIn className="h-4 w-4 text-brand" />
-          Join Semua Akun ke Grup / Channel
-          {connectedCount > 0 && (
-            <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs text-brand font-medium">
-              {connectedCount} akun terhubung
-            </span>
-          )}
-        </span>
-        {open ? <ChevronUp className="h-4 w-4 text-text-muted" /> : <ChevronDown className="h-4 w-4 text-text-muted" />}
-      </button>
-
-      {open && (
-        <div className="border-t border-border px-4 pb-4 pt-3 space-y-3">
+  const content = open && (
+        <div className={`${embedded ? '' : 'border-t border-border'} px-4 pb-4 pt-3 space-y-3`}>
           {connectedCount === 0 ? (
             <p className="text-xs text-text-muted">Tidak ada akun yang terhubung.</p>
           ) : (
@@ -186,7 +167,29 @@ export function JoinAllPanel({ accounts }: JoinAllPanelProps) {
             </>
           )}
         </div>
-      )}
+  );
+
+  if (embedded) return content;
+
+  return (
+    <div className="rounded-lg border border-border bg-surface overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-text hover:bg-surface/80 transition-colors"
+      >
+        <span className="flex items-center gap-2">
+          <LogIn className="h-4 w-4 text-brand" />
+          Join Semua Akun ke Grup / Channel
+          {connectedCount > 0 && (
+            <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs text-brand font-medium">
+              {connectedCount} akun terhubung
+            </span>
+          )}
+        </span>
+        {open ? <ChevronUp className="h-4 w-4 text-text-muted" /> : <ChevronDown className="h-4 w-4 text-text-muted" />}
+      </button>
+      {content}
     </div>
   );
 }

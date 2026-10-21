@@ -2,6 +2,7 @@ import {
   Activity,
   Bot,
   CreditCard,
+  Gauge,
   History,
   LayoutDashboard,
   Megaphone,
@@ -103,6 +104,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: routes.payments, label: strings.nav.payments, icon: CreditCard },
       { to: routes.settings, label: strings.nav.settings, icon: Settings },
+      { to: routes.systemMonitor, label: strings.nav.systemMonitor, icon: Gauge },
     ],
   },
 ];

@@ -292,6 +292,7 @@ model Payment {
   vaNumber     String?
   paymentUrl   String?
   expiresAt    DateTime?
+  paidAt       DateTime?
   raw          Json?
   createdAt    DateTime      @default(now())
 
@@ -677,4 +678,42 @@ model AutoSearchQueue {
   @@unique([accountId, chatId])
   @@index([status, enqueuedAt])
   @@index([accountId, status])
+}
+
+// ── Eak-DANA Integration ──────────────────────────────────────────────────────
+// Receives DANA payment notifications from the Eak-DANA Android APK.
+
+enum DanaEventStatus {
+  ACCEPTED  // matched to a pending order → PAID
+  DUPLICATE // notification already processed
+  NO_MATCH  // no matching pending order found
+}
+
+model DanaDevice {
+  id         String    @id @default(cuid())
+  label      String
+  tokenHash  String    @unique // SHA-256 of the plain bearer token (never store plain)
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  events     DanaEvent[]
+
+  @@index([tokenHash])
+}
+
+model DanaEvent {
+  id                  String          @id @default(cuid())
+  notificationId      String          @unique // dedup key from APK
+  deviceId            String
+  device              DanaDevice      @relation(fields: [deviceId], references: [id])
+  rawTitle            String
+  rawBody             String
+  parsedAmount        Int?
+  parsedDescription   String?
+  eventStatus         DanaEventStatus @default(NO_MATCH)
+  orderId             String?         // set when matched to an order
+  createdAt           DateTime        @default(now())
+
+  @@index([deviceId, createdAt])
+  @@index([orderId])
+  @@index([eventStatus, createdAt])
 }

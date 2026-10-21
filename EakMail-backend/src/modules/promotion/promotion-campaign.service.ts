@@ -7,6 +7,9 @@ import { promotionCampaignRepository as repo } from './promotion.repository.js';
 import { getQueues, QueueName } from '../../queue/queues.js';
 import type { PromotionCampaignDto, UpsertCampaignInput } from './promotion.types.js';
 import type { PromotionCampaign } from '@prisma/client';
+import { logger } from '../../lib/logger.js';
+
+const log = logger.child({ module: 'promotion-campaign-service' });
 
 type CampaignWithAccounts = PromotionCampaign & { accounts: { accountId: string }[] };
 
@@ -52,6 +55,7 @@ function jobKey(campaignId: string): string {
 async function scheduleJob(campaign: CampaignWithAccounts): Promise<void> {
   const queue = getQueues()[QueueName.PROMOTION];
   if (!queue) return;
+  await removeJob(campaign.id);
   await queue.add(
     'run',
     { campaignId: campaign.id },
@@ -68,8 +72,9 @@ async function removeJob(campaignId: string): Promise<void> {
   const queue = getQueues()[QueueName.PROMOTION];
   if (!queue) return;
   const jobs = await queue.getRepeatableJobs();
-  const job = jobs.find((j) => j.key.includes(jobKey(campaignId)));
-  if (job) await queue.removeRepeatableByKey(job.key);
+  const key = jobKey(campaignId);
+  const matches = jobs.filter((j) => j.key.includes(key));
+  await Promise.all(matches.map((j) => queue.removeRepeatableByKey(j.key)));
 }
 
 export const promotionCampaignService = {
@@ -152,5 +157,15 @@ export const promotionCampaignService = {
     if (!existing) throw new NotFoundError('PromotionCampaign');
     await removeJob(id);
     await repo.remove(id);
+  },
+
+  async rescheduleAllActive(): Promise<number> {
+    const all = await repo.findAll();
+    const active = all.filter((c) => c.status === 'ACTIVE');
+    for (const campaign of active) {
+      await scheduleJob(campaign);
+    }
+    log.info({ count: active.length }, 'rescheduled all active campaigns');
+    return active.length;
   },
 };

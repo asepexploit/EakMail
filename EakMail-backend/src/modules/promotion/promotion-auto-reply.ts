@@ -16,7 +16,7 @@
 import { logger } from '../../lib/logger.js';
 import { decrypt } from '../../lib/crypto.js';
 import { prisma } from '../../db/client.js';
-import { isSessionError, markAccountFromError } from './session-guard.js';
+import { isSessionError, isSendToSelfFrozenSignal, markAccountFromError } from './session-guard.js';
 
 const log = logger.child({ module: 'promotion-auto-reply' });
 
@@ -117,16 +117,14 @@ async function pollForDMs(accountId: string): Promise<void> {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const dialogs: any[] = result.dialogs ?? [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const usersMap = new Map<string, any>(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (result.users ?? []).map((u: any) => [String(u.id), u]),
-    );
 
     // Get or create cooldown map for this account
     if (!cooldowns.has(accountId)) cooldowns.set(accountId, new Map());
     const cd = cooldowns.get(accountId)!;
     const now = Date.now();
+
+    let sendAttempts = 0;
+    let peerInvalidCount = 0;
 
     for (const dialog of dialogs) {
       // Only private user chats
@@ -138,41 +136,35 @@ async function pollForDMs(accountId: string): Promise<void> {
 
       const userId = String(dialog.peer.userId);
 
-      // Skip bots, deleted users, and Telegram official (login codes etc.)
-      const user = usersMap.get(userId);
-      if (!user || user.bot || user.deleted) continue;
+      // Skip Telegram official (login codes etc.)
       if (userId === '777000') continue;
 
       // Cooldown — don't re-reply within 24 hours
       const lastReply = cd.get(userId) ?? 0;
       if (now - lastReply < COOLDOWN_MS) continue;
 
-      // Send auto-reply
+      // Send auto-reply using client.sendMessage which handles entity resolution
       try {
-        await client.invoke(new Api.messages.SendMessage({
-          peer: new Api.InputPeerUser({
-            userId: dialog.peer.userId,
-            accessHash: BigInt(user.accessHash?.toString() ?? '0'),
-          }),
-          message: replyText,
-          randomId: BigInt(Math.floor(Math.random() * 1e15)),
-        }));
+        sendAttempts++;
+        const peer = dialog.peer.userId;
+        await client.sendMessage(peer, { message: replyText });
 
         // Mark conversation as read
-        await client.invoke(new Api.messages.ReadHistory({
-          peer: new Api.InputPeerUser({
-            userId: dialog.peer.userId,
-            accessHash: BigInt(user.accessHash?.toString() ?? '0'),
-          }),
-          maxId: 0,
-        })).catch(() => undefined);
+        await client.markAsRead(peer).catch(() => undefined);
 
         cd.set(userId, now);
-        const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
-        log.info({ accountId, userId, name }, 'auto-reply sent');
+        log.info({ accountId, userId }, 'auto-reply sent');
       } catch (err) {
+        if (isSendToSelfFrozenSignal(err)) peerInvalidCount++;
         log.warn({ accountId, userId, err }, 'auto-reply: send failed');
       }
+    }
+
+    // If every single send attempt failed with 406 PEER_ID_INVALID, the account is likely frozen
+    if (sendAttempts > 0 && peerInvalidCount === sendAttempts) {
+      log.warn({ accountId, sendAttempts }, 'auto-reply: all sends got PEER_ID_INVALID — marking FROZEN');
+      await markAccountFromError(accountId, new Error('FROZEN_METHOD_INVALID'));
+      stopAutoReply(accountId);
     }
 
     // Prune old cooldown entries (older than 24h)
@@ -180,6 +172,11 @@ async function pollForDMs(accountId: string): Promise<void> {
       if (now - ts > COOLDOWN_MS) cd.delete(uid);
     }
   } catch (err) {
+    if (isSessionError(err)) {
+      await markAccountFromError(accountId, err);
+      stopAutoReply(accountId);
+      return;
+    }
     log.warn({ accountId, err }, 'auto-reply: getDialogs failed');
   }
 

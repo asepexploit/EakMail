@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  ci:
+    name: Lint · Typecheck · Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── shared-types ──────────────────────────────────────────────────────────
+
+      - name: Typecheck shared-types
+        run: pnpm --filter @eakmail/shared-types tsc --noEmit
+
+      # ── backend ───────────────────────────────────────────────────────────────
+
+      - name: Lint backend
+        run: pnpm --filter eakmail-backend lint
+
+      - name: Typecheck backend
+        run: pnpm --filter eakmail-backend tsc --noEmit
+
+      - name: Test backend
+        run: pnpm --filter eakmail-backend test --run
+
+      # ── frontend ──────────────────────────────────────────────────────────────
+
+      - name: Lint frontend
+        run: pnpm --filter eakmail-frontend lint
+
+      - name: Typecheck frontend
+        run: pnpm --filter eakmail-frontend tsc --noEmit
+
+      - name: Test frontend
+        run: pnpm --filter eakmail-frontend test --run

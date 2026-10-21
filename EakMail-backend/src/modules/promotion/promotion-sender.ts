@@ -153,9 +153,9 @@ async function sendOne(
       peer = chat;
     }
 
-    // Skip if our message is already the last one in this group (scheduled runs only).
+    // Skip if our message is already the most recent real message in this group.
+    // Check last 5 messages; if the newest non-service message is ours → skip.
     // Manual triggers (force=true) always send regardless.
-    // Wait until someone else posts before sending again — prevents spam.
     if (myUserId && !force) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -171,13 +171,28 @@ async function sendOne(
         }));
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const messages: any[] = history?.messages ?? [];
-        // Ignore service messages (join/leave/pin notifications) — only check real user messages.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const lastMsg: any = messages.find((m: any) => m.className === 'Message');
-        const senderId = lastMsg?.senderId ?? lastMsg?.fromId?.userId;
-        if (senderId && String(senderId) === myUserId) {
-          log.info({ target }, 'last message is already ours — skipping to avoid spam');
-          return { ok: false, error: 'Last message already ours — skipping', errorType: 'SKIP' };
+        const realMessages = messages.filter(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (m: any) => m.className === 'Message',
+        );
+        if (realMessages.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const getSenderId = (m: any): string | null => {
+            const fuid = m?.fromId?.userId;
+            const s = m?.senderId;
+            return fuid != null ? String(fuid) : s != null ? String(s) : null;
+          };
+          const ownCount = realMessages.filter(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (m: any) => getSenderId(m) === myUserId,
+          ).length;
+          const lastMsg = realMessages[0];
+          const senderStr = getSenderId(lastMsg);
+          log.debug({ target, myUserId, senderStr, ownCount, totalChecked: realMessages.length }, 'spam-check: comparing last message sender');
+          if (senderStr && senderStr === myUserId) {
+            log.info({ target, ownCount, totalChecked: realMessages.length }, `last message is already ours (${ownCount}/${realMessages.length} pesan milik kita) — skipping to avoid spam`);
+            return { ok: false, error: `Pesan terakhir masih milik akun ini (${ownCount}/${realMessages.length} pesan kita) — menunggu balasan dulu`, errorType: 'SKIP' };
+          }
         }
       } catch {
         // Best-effort — if check fails, proceed with send

@@ -535,7 +535,7 @@ export async function promotionRoutes(app: FastifyInstance): Promise<void> {
     await queue.add(
       'run',
       { campaignId: id, force: true },
-      { jobId: fixedJobId, removeOnComplete: 5, removeOnFail: 5 },
+      { jobId: fixedJobId, priority: 1, removeOnComplete: 5, removeOnFail: 5 },
     );
     return { ok: true };
   });

@@ -27,6 +27,8 @@ import { workflowsRoutes } from './routes/workflows.routes.js';
 import { promotionRoutes } from './routes/promotion.routes.js';
 import { monitorRoutes } from './routes/monitor.routes.js';
 import { eakTeleRoutes } from './routes/eaktele.routes.js';
+import { queueMonitorRoutes } from './routes/queue-monitor.routes.js';
+import { danaRoutes } from './routes/dana.routes.js';
 import { executionStreamHandler } from './ws/execution-stream.js';
 
 /**
@@ -70,6 +72,8 @@ export async function buildServer() {
       await api.register(promotionRoutes, { prefix: '/promotion' });
       await api.register(monitorRoutes, { prefix: '/monitor' });
       await api.register(eakTeleRoutes, { prefix: '/eaktele' });
+      await api.register(queueMonitorRoutes, { prefix: '/queue-monitor' });
+      await api.register(danaRoutes, { prefix: '/payments/dana' });
     },
     { prefix: '/api' },
   );

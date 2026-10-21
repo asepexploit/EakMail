@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Eak-DANA</string>
+    <string name="notification_channel_name">Eak-DANA Sync</string>
+    <string name="notification_channel_desc">Sinkronisasi notifikasi DANA ke EakMail</string>
+    <string name="label_status">Status</string>
+    <string name="label_pending">Antrian</string>
+    <string name="label_events">Event</string>
+    <string name="btn_test_connection">Tes Koneksi</string>
+    <string name="btn_settings">Pengaturan</string>
+    <string name="btn_grant_access">Izinkan Akses Notifikasi</string>
+    <string name="msg_not_configured">Belum dikonfigurasi. Buka Pengaturan.</string>
+    <string name="msg_no_notification_access">Akses notifikasi belum diberikan.</string>
+</resources>
